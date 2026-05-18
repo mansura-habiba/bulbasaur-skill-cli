@@ -11,11 +11,42 @@ license = { text = "Apache-2.0" }
 authors = [{ name = "Bulbasaur framework" }]
 requires-python = ">=3.11,<3.14"
 
-# Phase 1 keeps the dependency surface minimal — the five-minute promise depends on
-# `pip install skillctl` resolving quickly. Stdlib-only where possible.
-# Optional dependency groups land starting in Phase 2 (skillctl[runtime], skillctl[registry], skillctl[full]).
+# Base install — the five-minute promise. Stdlib + ruamel.yaml only.
+# Covers: skillctl new, skillctl compile, skillctl run at `local` strictness.
 dependencies = [
-  "ruamel.yaml>=0.18,<1.0",  # YAML 1.2, preserves user-authored frontmatter
+  "ruamel.yaml>=0.18,<1.0",
+]
+
+# Optional dependency groups. Land progressively across phases (see ADR 0003).
+[project.optional-dependencies]
+# Phase 2: full validator suite (registry-context trigger, prompt-injection, semantic fuzz).
+validator = [
+  # Pinned in Phase 2 sprint 3.
+]
+
+# Phase 4: runtime components (Hook Bus, Cost Budget Enforcer, OTel exporters).
+runtime = [
+  # Pinned in Phase 4 sprint 1.
+  # "opentelemetry-api>=1.27",
+  # "opentelemetry-sdk>=1.27",
+]
+
+# Phase 3: publishing, signing, MCP Composer federation.
+registry = [
+  # Pinned in Phase 3 sprint 7.
+  # "sigstore>=3.0",
+]
+
+# Everything — for CI runners and framework dogfooding.
+full = [
+  "skillctl[validator,runtime,registry]",
+]
+
+# Development-time tooling — not user-facing.
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=5.0",
+  "ruff>=0.5",
 ]
 
 [project.scripts]
@@ -29,8 +60,11 @@ Issues = "https://github.com/bulbasaur/bulbasaur/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/skillctl"]
+exclude = [
+  "**/.fuse_hidden*",  # sandbox FUSE artifacts; never real source files
+]
 
-[tool.hatch.build.targets.wheel.shared-data]
+[tool.hatch.build.targets.wheel.force-include]
 "src/skillctl/templates" = "skillctl/templates"
 
 [tool.pytest.ini_options]

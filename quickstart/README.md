@@ -4,19 +4,26 @@ The five-minute promise — from zero to running skill — measured wall-clock a
 
 ## Prerequisites
 
-- Python `>=3.11, <3.14`
-- `uv` recommended (or `pip` / `poetry`)
+- `uv` (the canonical Python toolchain — [install instructions](https://docs.astral.sh/uv/getting-started/installation/))
+- Python `>=3.11, <3.14` (uv installs this for you if needed)
+
+`pip` works as a fallback for environments where uv is not yet available, but uv is what the framework standardizes on. See [ADR 0002](../docs/adr/0002-uv-toolchain.md).
 
 ## The flow
 
 ```bash
-# 1. Install (≤30 seconds)
-uv add skillctl                # or: pip install skillctl
+# 1. Trial without installing — uvx runs skillctl in an ephemeral env
+uvx skillctl new hello-skill
+cd hello-skill
+uvx skillctl compile
+uvx skillctl run
+```
 
-# 2. Scaffold (≤5 seconds)
+Or, to install into a project:
+
+```bash
+uv add skillctl
 skillctl new hello-skill
-
-# 3. Compile and run (≤30 seconds combined)
 cd hello-skill
 skillctl compile
 skillctl run
@@ -31,7 +38,7 @@ Expected output from `skillctl run`:
 
 ## What just happened
 
-- `skillctl new` scaffolded a `SKILL.md` from the `local`-strictness template. Two required fields (`name`, `description`) plus a one-line body. That is all that the public [agentskills.io](https://agentskills.io) spec requires.
+- `skillctl new` scaffolded a `SKILL.md` from the `local`-strictness template. Two required fields (`name`, `description`) plus a one-line body. That is all the public [agentskills.io](https://agentskills.io) spec requires.
 - `skillctl compile` validated the frontmatter against the public spec (name rules, description length, etc.) and emitted a small `dist/compile-report.json`. At `local` strictness no enterprise validation runs.
 - `skillctl run` invoked a mock agent that loaded the skill and applied the body's instruction to the sample input.
 

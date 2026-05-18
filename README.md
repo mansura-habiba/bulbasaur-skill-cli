@@ -6,6 +6,8 @@ A skill framework for agentic development. Skills are versioned, signed, owned, 
 
 ## Quickstart
 
+`uv` is the canonical Python toolchain — [install it first](https://docs.astral.sh/uv/getting-started/installation/) if you don't have it.
+
 ```bash
 # Trial without installing
 uvx skillctl new hello-skill
@@ -17,7 +19,7 @@ skillctl new hello-skill
 cd hello-skill && skillctl compile && skillctl run
 ```
 
-See [`docs/quickstart.md`](docs/quickstart.md) for the five-minute walkthrough.
+See [`quickstart/`](quickstart/) for the five-minute walkthrough and [`docs/quickstart.md`](docs/quickstart.md) for the longer guide.
 
 ## The strictness ladder
 
