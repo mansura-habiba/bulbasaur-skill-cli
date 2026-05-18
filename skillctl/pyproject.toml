@@ -3,7 +3,7 @@ requires = ["hatchling>=1.21"]
 build-backend = "hatchling.build"
 
 [project]
-name = "skillctl"
+name = "bbsctl"
 version = "0.1.0"
 description = "Bulbasaur skill framework CLI — design, compile, validate, deploy, and evaluate agent skills like production code."
 readme = "../README.md"
@@ -12,7 +12,7 @@ authors = [{ name = "Bulbasaur framework" }]
 requires-python = ">=3.11,<3.14"
 
 # Base install — the five-minute promise. Stdlib + ruamel.yaml only.
-# Covers: skillctl new, skillctl compile, skillctl run at `local` strictness.
+# Covers: bbsctl new, bbsctl compile, bbsctl run at `local` strictness.
 dependencies = [
   "ruamel.yaml>=0.18,<1.0",
 ]
@@ -39,7 +39,7 @@ registry = [
 
 # Everything — for CI runners and framework dogfooding.
 full = [
-  "skillctl[validator,runtime,registry]",
+  "bbsctl[validator,runtime,registry]",
 ]
 
 # Development-time tooling — not user-facing.
@@ -49,14 +49,16 @@ dev = [
   "ruff>=0.5",
 ]
 
+# Per ADR 0006: PyPI package name is `bbsctl`; CLI binary is `bbsctl`;
+# Python module remains `skillctl` (internal import path, unchanged).
 [project.scripts]
-skillctl = "skillctl.cli:main"
+bbsctl = "skillctl.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/bulbasaur/bulbasaur"
-Documentation = "https://github.com/bulbasaur/bulbasaur/tree/main/docs"
-Repository = "https://github.com/bulbasaur/bulbasaur"
-Issues = "https://github.com/bulbasaur/bulbasaur/issues"
+Homepage = "<repo-url>"
+Documentation = "<repo-url>/tree/main/docs"
+Repository = "<repo-url>"
+Issues = "<repo-url>/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/skillctl"]

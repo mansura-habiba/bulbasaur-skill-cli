@@ -2,7 +2,7 @@
 
 These are pure functions that take a value and return None on success or raise
 AgentSkillsValidationError on failure. They are intentionally separate from
-the frontmatter parser so they can be reused (in `skillctl new`, in the
+the frontmatter parser so they can be reused (in `bbsctl new`, in the
 validator, in the LSP, etc.).
 
 Source-of-truth: https://agentskills.io/specification

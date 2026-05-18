@@ -26,30 +26,30 @@ step() {
   echo "::endgroup::"
 }
 
-# Step 1 — install skillctl into an isolated env.
+# Step 1 — install bbsctl into an isolated env.
 # Prefer uv when available, fall back to pip.
 if command -v uv >/dev/null 2>&1; then
   step "install (uv)" uv venv .venv --python 3.11
   # shellcheck disable=SC1091
   source .venv/bin/activate
-  step "install (uv add)" uv pip install -e "${SKILLCTL_SRC:-$GITHUB_WORKSPACE/skillctl}"
+  step "install (uv add)" uv pip install -e "${BBSCTL_SRC:-$GITHUB_WORKSPACE/skillctl}"
 else
   step "install (pip)" python3 -m venv .venv
   # shellcheck disable=SC1091
   source .venv/bin/activate
   step "install (pip)" python3 -m pip install --quiet --upgrade pip
-  step "install (pip install)" python3 -m pip install --quiet -e "${SKILLCTL_SRC:-$GITHUB_WORKSPACE/skillctl}"
+  step "install (pip install)" python3 -m pip install --quiet -e "${BBSCTL_SRC:-$GITHUB_WORKSPACE/skillctl}"
 fi
 
 # Step 2 — scaffold.
-step "scaffold" skillctl new hello-skill
+step "scaffold" bbsctl new hello-skill
 
 # Step 3 — compile.
 cd hello-skill
-step "compile" skillctl compile
+step "compile" bbsctl compile
 
 # Step 4 — run.
-step "run" skillctl run
+step "run" bbsctl run
 
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))

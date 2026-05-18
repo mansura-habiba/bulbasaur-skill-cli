@@ -10,7 +10,7 @@ The pluggable shape (Phase 1 ships the mock; Phase 4+ adds real runtimes):
   LangGraphAdapter          Phase 6 — exposes the skill as a LangGraph node
   RuntimeFactory            builds the right adapter from a config
 
-Phase 1 just needs `skillctl run` to load a SKILL.md, hand it to the mock
+Phase 1 just needs `bbsctl run` to load a SKILL.md, hand it to the mock
 agent, accept a sample prompt, and print the result. That is enough to
 demonstrate the five-minute promise.
 """

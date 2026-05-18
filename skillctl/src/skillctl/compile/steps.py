@@ -67,8 +67,8 @@ class ParseFrontmatterStep(CompileStep):
                         summary="SKILL.md not found",
                         detail=f"expected at {skill_md}",
                         fix=(
-                            "Run `skillctl new <name>` to scaffold a skill, or `cd` into "
-                            "the skill directory before running `skillctl compile`."
+                            "Run `bbsctl new <name>` to scaffold a skill, or `cd` into "
+                            "the skill directory before running `bbsctl compile`."
                         ),
                     )
                 ],

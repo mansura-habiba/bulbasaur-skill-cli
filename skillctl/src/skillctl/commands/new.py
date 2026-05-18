@@ -1,4 +1,4 @@
-"""`skillctl new <name>` — scaffold a new skill from a strictness-level template.
+"""`bbsctl new <name>` — scaffold a new skill from a strictness-level template.
 
 Phase 1: only the `local` template is wired. Templates are loaded from the
 `skillctl.templates` package data (shipped with the wheel) using a Strategy
@@ -16,7 +16,7 @@ from ruamel.yaml import YAML
 from skillctl.agentskills import validate_name
 from skillctl.agentskills.rules import AgentSkillsValidationError
 from skillctl.messaging import FrameworkError, emit, info
-from skillctl.strictness import Strictness
+from skillctl.strictness import Strictness, fail_if_unsupported, supported_levels
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
@@ -30,8 +30,8 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     p.add_argument(
         "--strictness",
         default="local",
-        choices=[s.value for s in Strictness],
-        help="Strictness level to scaffold at (default: local)",
+        choices=supported_levels("new"),
+        help="Strictness level to scaffold at (default: local). Phase 1 supports `local` only.",
     )
     p.add_argument(
         "--dir",
@@ -42,10 +42,25 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 
 
 def run(args: argparse.Namespace) -> int:
-    """Execute `skillctl new`."""
+    """Execute `bbsctl new`."""
     name: str = args.name
     strictness = Strictness.from_string(args.strictness)
     parent_dir = Path(args.dir) if args.dir else Path.cwd()
+
+    # Defensive check in case the strictness was passed programmatically
+    # (bypassing argparse choices). Keeps the framework honest about what it
+    # actually supports today (friction-audit F2/F3).
+    unsupported_fix = fail_if_unsupported("new", strictness)
+    if unsupported_fix is not None:
+        emit(
+            FrameworkError(
+                summary=f"strictness `{strictness.value}` is not supported by `bbsctl new` yet",
+                detail="vapor-options guard (see docs/audits/phase-1.md F2)",
+                fix=unsupported_fix,
+                docs="../docs/strictness-levels.md",
+            )
+        )
+        return 1
 
     # Validate name against agentskills.io rules BEFORE creating the directory.
     try:
@@ -66,7 +81,7 @@ def run(args: argparse.Namespace) -> int:
         emit(
             FrameworkError(
                 summary=f"refusing to overwrite existing path: {target}",
-                detail="`skillctl new` will not write into an existing directory",
+                detail="`bbsctl new` will not write into an existing directory",
                 fix=f"Choose a different name, or remove {target} first.",
             )
         )
@@ -87,8 +102,8 @@ def run(args: argparse.Namespace) -> int:
     info("")
     info("Next:")
     info(f"  cd {target.relative_to(Path.cwd()) if target.is_relative_to(Path.cwd()) else target}")
-    info("  skillctl compile")
-    info("  skillctl run")
+    info("  bbsctl compile")
+    info("  bbsctl run")
     return 0
 
 

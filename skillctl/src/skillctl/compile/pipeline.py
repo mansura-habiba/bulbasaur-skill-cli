@@ -155,7 +155,7 @@ class CompilePipeline:
                             fix=(
                                 "This is a framework bug, not a user error. "
                                 "Please open an issue with the SKILL.md and the "
-                                "full output of `skillctl compile -v`."
+                                "full output of `bbsctl compile -v`."
                             ),
                         )
                     ],

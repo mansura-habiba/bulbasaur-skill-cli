@@ -1,4 +1,4 @@
-"""`skillctl compile` — compile the skill at PWD (or --dir).
+"""`bbsctl compile` — compile the skill at PWD (or --dir).
 
 Phase 1 wires the compile pipeline (see skillctl/compile/) at the configured
 strictness and exits with the appropriate code. Later phases add `--repair`
@@ -19,7 +19,7 @@ from skillctl.compile import (
     build_pipeline,
 )
 from skillctl.messaging import FrameworkError, emit
-from skillctl.strictness import Strictness
+from skillctl.strictness import Strictness, fail_if_unsupported, supported_levels
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
@@ -38,8 +38,8 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     p.add_argument(
         "--strictness",
         default=None,
-        choices=[s.value for s in Strictness],
-        help="Override strictness for this compile (default: read from skill.yaml or LOCAL)",
+        choices=supported_levels("compile"),
+        help="Override strictness for this compile (default: read from skill.yaml or LOCAL). Phase 1 supports `local` only.",
     )
     p.add_argument(
         "--output",
@@ -51,7 +51,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 
 
 def run(args: argparse.Namespace) -> int:
-    """Execute `skillctl compile`."""
+    """Execute `bbsctl compile`."""
     skill_dir = Path(args.skill_dir).resolve()
     if not skill_dir.exists() or not skill_dir.is_dir():
         emit(
@@ -59,13 +59,27 @@ def run(args: argparse.Namespace) -> int:
                 summary=f"skill directory not found: {skill_dir}",
                 fix=(
                     "Pass an existing directory, or `cd` into the skill directory "
-                    "before running `skillctl compile`."
+                    "before running `bbsctl compile`."
                 ),
             )
         )
         return 1
 
     strictness = _resolve_strictness(skill_dir, args.strictness)
+
+    # Vapor-options guard for programmatic invocations that bypass argparse choices.
+    unsupported_fix = fail_if_unsupported("compile", strictness)
+    if unsupported_fix is not None:
+        emit(
+            FrameworkError(
+                summary=f"strictness `{strictness.value}` is not supported by `bbsctl compile` yet",
+                detail="vapor-options guard (see docs/audits/phase-1.md F3)",
+                fix=unsupported_fix,
+                docs="../docs/strictness-levels.md",
+            )
+        )
+        return 1
+
     reporter: Reporter = _build_reporter(args.output)
 
     reporter.on_start(skill_dir=str(skill_dir), strictness=strictness.value)

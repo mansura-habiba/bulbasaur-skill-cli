@@ -1,4 +1,4 @@
-"""`skillctl run` — execute a skill against a runtime adapter.
+"""`bbsctl run` — execute a skill against a runtime adapter.
 
 Phase 1 ships the mock runtime so the quickstart works with zero external
 dependencies. Later phases register Claude Agent SDK, Claude Code, MCP, and
@@ -48,14 +48,14 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 
 
 def run(args: argparse.Namespace) -> int:
-    """Execute `skillctl run`."""
+    """Execute `bbsctl run`."""
     skill_dir = Path(args.skill_dir).resolve()
     skill_md = skill_dir / "SKILL.md"
     if not skill_md.exists():
         emit(
             FrameworkError(
                 summary=f"SKILL.md not found at {skill_md}",
-                fix="Run `skillctl new <name>` to scaffold a skill, or `cd` into one first.",
+                fix="Run `bbsctl new <name>` to scaffold a skill, or `cd` into one first.",
             )
         )
         return 1

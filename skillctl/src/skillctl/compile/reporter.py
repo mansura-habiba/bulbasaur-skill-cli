@@ -41,26 +41,48 @@ class TextReporter(Reporter):
 
     Prints one line per step plus a final summary. Errors are emitted using
     the Bulbasaur error contract (ERROR / Detail / Fix / Docs).
+
+    Friction-audit F7: once a step fails, downstream OK steps are downgraded
+    visually to a muted marker so the user does not see green checks under a
+    red ✗ and conclude everything's fine. The pipeline still runs the downstream
+    steps (so the user gets all the errors per run); the visual just stops
+    misleading them.
     """
 
     def __init__(self, stream: IO[str] | None = None):
         self._stream = stream or sys.stdout
         self._start_time: float | None = None
+        # Track whether any earlier step failed; downstream OKs are then downgraded.
+        self._pipeline_failed: bool = False
 
     def on_start(self, *, skill_dir: str, strictness: str) -> None:
         self._start_time = time.monotonic()
-        print(f"skillctl compile  ·  {skill_dir}  ·  strictness={strictness}", file=self._stream)
+        self._pipeline_failed = False
+        print(f"bbsctl compile  ·  {skill_dir}  ·  strictness={strictness}", file=self._stream)
 
     def on_step(self, step_name: str, result: "StepResult") -> None:
         # Step icons keep the output skimmable.
-        icons = {"ok": "✓", "warned": "!", "failed": "✗", "skipped": "·"}
-        icon = icons.get(result.outcome.value, "?")
-        print(f"  {icon} {step_name}", file=self._stream)
+        # Friction-audit F7: when the pipeline is already failing, an OK step
+        # downstream shows as `~` (ran-anyway) rather than `✓` (clean success).
+        # This stops the visual contradiction the audit caught.
+        outcome = result.outcome.value
+        if outcome == "ok" and self._pipeline_failed:
+            icon = "~"
+            annotation = "  (ran after earlier failure)"
+        else:
+            icons = {"ok": "✓", "warned": "!", "failed": "✗", "skipped": "·"}
+            icon = icons.get(outcome, "?")
+            annotation = ""
+
+        print(f"  {icon} {step_name}{annotation}", file=self._stream)
 
         for warning in result.warnings:
             print("    " + warning.render().replace("\n", "\n    "), file=self._stream)
         for error in result.errors:
             print("    " + error.render().replace("\n", "\n    "), file=self._stream)
+
+        if outcome == "failed":
+            self._pipeline_failed = True
 
     def on_finish(self, result: "CompileResult") -> None:
         elapsed_ms = 0

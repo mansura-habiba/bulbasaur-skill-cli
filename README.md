@@ -10,13 +10,13 @@ A skill framework for agentic development. Skills are versioned, signed, owned, 
 
 ```bash
 # Trial without installing
-uvx skillctl new hello-skill
-cd hello-skill && uvx skillctl compile && uvx skillctl run
+uvx bbsctl new hello-skill
+cd hello-skill && uvx bbsctl compile && uvx bbsctl run
 
 # Or install into a project
-uv add skillctl
-skillctl new hello-skill
-cd hello-skill && skillctl compile && skillctl run
+uv add bbsctl
+bbsctl new hello-skill
+cd hello-skill && bbsctl compile && bbsctl run
 ```
 
 See [`quickstart/`](quickstart/) for the five-minute walkthrough and [`docs/quickstart.md`](docs/quickstart.md) for the longer guide.
@@ -33,8 +33,8 @@ See [`quickstart/`](quickstart/) for the five-minute walkthrough and [`docs/quic
 Climb the ladder one step at a time:
 
 ```bash
-skillctl strictness team    # adds skill.yaml with team-tier minimum, prompts for ownership stub
-skillctl strictness org     # adds the full enterprise overlay, prompts to sign
+bbsctl strictness team    # adds skill.yaml with team-tier minimum, prompts for ownership stub
+bbsctl strictness org     # adds the full enterprise overlay, prompts to sign
 ```
 
 The framework does not force escalation. The marketplace is the gate that refuses to host skills below its declared strictness.

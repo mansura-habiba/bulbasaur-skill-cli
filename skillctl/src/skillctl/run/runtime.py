@@ -1,7 +1,7 @@
 """The AgentRuntime adapter interface.
 
 Implementations of this interface (mock, Claude Agent SDK, Claude Code, MCP,
-LangGraph) all expose the same shape so `skillctl run` does not care which
+LangGraph) all expose the same shape so `bbsctl run` does not care which
 one is in use. Adding a runtime is a matter of one subclass plus a factory
 registration.
 """
