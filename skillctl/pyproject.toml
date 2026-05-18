@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "skillctl"
+version = "0.1.0"
+description = "Bulbasaur skill framework CLI — design, compile, validate, deploy, and evaluate agent skills like production code."
+readme = "../README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Bulbasaur framework" }]
+requires-python = ">=3.11,<3.14"
+
+# Phase 1 keeps the dependency surface minimal — the five-minute promise depends on
+# `pip install skillctl` resolving quickly. Stdlib-only where possible.
+# Optional dependency groups land starting in Phase 2 (skillctl[runtime], skillctl[registry], skillctl[full]).
+dependencies = [
+  "ruamel.yaml>=0.18,<1.0",  # YAML 1.2, preserves user-authored frontmatter
+]
+
+[project.scripts]
+skillctl = "skillctl.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/bulbasaur/bulbasaur"
+Documentation = "https://github.com/bulbasaur/bulbasaur/tree/main/docs"
+Repository = "https://github.com/bulbasaur/bulbasaur"
+Issues = "https://github.com/bulbasaur/bulbasaur/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/skillctl"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"src/skillctl/templates" = "skillctl/templates"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF"]
