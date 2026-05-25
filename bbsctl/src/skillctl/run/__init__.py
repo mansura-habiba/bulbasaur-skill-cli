@@ -15,8 +15,8 @@ agent, accept a sample prompt, and print the result. That is enough to
 demonstrate the five-minute promise.
 """
 
-from .runtime import AgentRuntime, RuntimeResponse
-from .mock import MockAgent
 from .factory import build_runtime
+from .mock import MockAgent
+from .runtime import AgentRuntime, RuntimeResponse
 
-__all__ = ["AgentRuntime", "RuntimeResponse", "MockAgent", "build_runtime"]
+__all__ = ["AgentRuntime", "MockAgent", "RuntimeResponse", "build_runtime"]

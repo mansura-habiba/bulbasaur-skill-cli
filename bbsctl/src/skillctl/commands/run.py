@@ -16,7 +16,6 @@ from skillctl.messaging import FrameworkError, emit, info
 from skillctl.run import build_runtime
 from skillctl.run.factory import list_runtimes
 
-
 _DEFAULT_PROMPT = "hello"
 
 

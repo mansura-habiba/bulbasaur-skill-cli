@@ -34,7 +34,6 @@ from skillctl import __version__
 
 from .target import PublishContext, PublishResult, PublishTarget
 
-
 # Public Claude Code plugin spec reserves certain marketplace names. Ours must
 # not collide. See https://code.claude.com/docs/en/plugin-marketplaces.
 _DEFAULT_MARKETPLACE_NAME = "bulbasaur-local"
@@ -113,13 +112,13 @@ class ClaudeCodeLocalTarget(PublishTarget):
         # Build the next-steps the CLI will print.
         rel_marketplace = _relativize_for_display(marketplace_dir)
         next_steps = [
-            f"# 1. In Claude Code, add this marketplace:",
+            "# 1. In Claude Code, add this marketplace:",
             f"/plugin marketplace add {rel_marketplace}",
             "",
-            f"# 2. Install the plugin from the marketplace:",
+            "# 2. Install the plugin from the marketplace:",
             f"/plugin install {plugin_name}@{marketplace_name}",
             "",
-            f"# 3. Invoke the skill (Claude Code namespaces plugin skills as plugin:skill):",
+            "# 3. Invoke the skill (Claude Code namespaces plugin skills as plugin:skill):",
             f"/{plugin_name}:{skill_name}",
             "",
             "# To re-publish after editing the skill, run `bbsctl publish` again",

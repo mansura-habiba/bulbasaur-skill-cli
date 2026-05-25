@@ -11,6 +11,7 @@ Adding a new compile step (Phase 2: spec-lint, dependency-audit, reference-fresh
 is a matter of writing one CompileStep subclass and registering it with the factory.
 """
 
+from .factory import build_pipeline, register_step
 from .pipeline import (
     CompileContext,
     CompilePipeline,
@@ -19,7 +20,6 @@ from .pipeline import (
     StepOutcome,
     StepResult,
 )
-from .factory import build_pipeline, register_step
 from .reporter import JsonReporter, NullReporter, Reporter, TextReporter
 
 __all__ = [
@@ -27,12 +27,12 @@ __all__ = [
     "CompilePipeline",
     "CompileResult",
     "CompileStep",
-    "StepOutcome",
-    "StepResult",
-    "build_pipeline",
-    "register_step",
-    "Reporter",
-    "TextReporter",
     "JsonReporter",
     "NullReporter",
+    "Reporter",
+    "StepOutcome",
+    "StepResult",
+    "TextReporter",
+    "build_pipeline",
+    "register_step",
 ]

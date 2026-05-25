@@ -58,7 +58,7 @@ def emit(error: FrameworkError, *, stream=None) -> None:
     print(error.render(), file=stream)
 
 
-def emit_and_exit(error: FrameworkError, *, code: int = 1) -> "None":
+def emit_and_exit(error: FrameworkError, *, code: int = 1) -> None:
     """Print a FrameworkError to stderr and exit with the given code (default 1)."""
     emit(error)
     sys.exit(code)

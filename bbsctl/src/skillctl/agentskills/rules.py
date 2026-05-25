@@ -97,14 +97,15 @@ def validate_name(value: Any, *, parent_dir: str | None = None) -> None:
             "name",
             "pattern",
             detail,
-            fix=f"Rename to a lowercase kebab-case identifier (e.g. `my-skill`).",
+            fix="Rename to a lowercase kebab-case identifier (e.g. `my-skill`).",
         )
 
     if parent_dir is not None and value != parent_dir:
         raise AgentSkillsValidationError(
             "name",
             "parent_mismatch",
-            f"must match the parent directory name (skill name={value!r}, directory={parent_dir!r})",
+            f"must match the parent directory name "
+            f"(skill name={value!r}, directory={parent_dir!r})",
             fix=f"Rename the directory to `{value}` or change the name field to `{parent_dir}`.",
         )
 
@@ -204,8 +205,8 @@ def validate_metadata(value: Any) -> None:
 __all__ = [
     "AGENTSKILLS_SPEC_URL",
     "AgentSkillsValidationError",
-    "validate_name",
-    "validate_description",
     "validate_compatibility",
+    "validate_description",
     "validate_metadata",
+    "validate_name",
 ]

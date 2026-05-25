@@ -1,0 +1,49 @@
+{
+  "skillctl_version": "0.1.0",
+  "skill_dir": "/Users/mansurah/Development/bulbasaur-skill-cli/demo/log-analyzer",
+  "strictness": "team",
+  "frontmatter": {
+    "name": "log-analyzer",
+    "description": "[What Log Analyzer does]. Use when [the trigger situation for log-analyzer].",
+    "license": null,
+    "compatibility": null,
+    "allowed-tools": null
+  },
+  "steps": [
+    {
+      "name": "parse-frontmatter",
+      "outcome": "ok",
+      "duration_ms": 3,
+      "payload": {
+        "name": "log-analyzer",
+        "description_length": 76,
+        "has_license": false,
+        "has_compatibility": false,
+        "has_metadata": false,
+        "body_chars": 765
+      },
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "validate-agentskills-spec",
+      "outcome": "ok",
+      "duration_ms": 0,
+      "payload": {
+        "spec_url": "https://agentskills.io/specification"
+      },
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "emit-report",
+      "outcome": "ok",
+      "duration_ms": 0,
+      "payload": {
+        "report_path": "/Users/mansurah/Development/bulbasaur-skill-cli/demo/log-analyzer/dist/compile-report.json"
+      },
+      "errors": [],
+      "warnings": []
+    }
+  ]
+}

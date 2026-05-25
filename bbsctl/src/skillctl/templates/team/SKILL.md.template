@@ -1,0 +1,43 @@
+---
+name: {{name}}
+description: {{description}}
+---
+
+## Instructions
+
+1. [Step-by-step instructions for what the skill does]
+2. [Continue with each discrete step]
+3. [End with how to present the result]
+
+## When to use this skill
+
+Describe the exact situations where this skill should activate. Be specific —
+the agent uses your `description` field and these cues together to decide
+whether to activate.
+
+- [Trigger condition 1: e.g. "User asks to extract data from a PDF"]
+- [Trigger condition 2: e.g. "User mentions document conversion"]
+- [Negative trigger: e.g. "Do NOT activate for image-only files"]
+
+## Guardrails
+
+Safety boundaries and constraints the skill must respect.
+
+- **Must never:** [Action the skill must never take]
+- **Must reject:** [Input the skill must refuse, e.g. "Reject PII in prompts"]
+- **Must fallback:** [Behaviour when preconditions are not met]
+- **Rate/cost limits:** [Any budget or rate constraints]
+
+## Examples
+
+**Input:** [Describe an example user request]
+
+**Output:** [Describe the expected response]
+
+## Edge cases
+
+- [Describe a common edge case and how to handle it]
+
+## References
+
+- See `references/` for supporting material (loaded progressively at runtime).

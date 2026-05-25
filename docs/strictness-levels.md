@@ -81,9 +81,9 @@ The compiler reads `skill.yaml` if it exists; otherwise the strictness is `local
 
 ## Why this exists
 
-The DX charter (framework-build-plan.md §0) is explicit: defaults are permissive; progressive enhancement, not progressive obligation; the framework composes with developer tools rather than replacing them.
+The DX charter is explicit: defaults are permissive; progressive enhancement, not progressive obligation; the framework composes with developer tools rather than replacing them.
 
-The previous design (framework-build-plan.old.md) was production-code-first — every MVP1 acceptance criterion required signing, ownership, Rego, OTel, and on-call wiring before a single skill ran. That order is right for the north star but wrong for adoption. The strictness axis lets the framework serve both:
+The strictness axis lets the framework serve both:
 
 - A solo developer trying things out ships at `local` strictness in five minutes.
 - A regulated business unit ships at `regulated` strictness with every gate strict.
@@ -98,7 +98,4 @@ That moves the enforcement point from "the framework refuses to compile" to "the
 
 ## See also
 
-- [framework-build-plan.md §0 — DX charter](../framework-build-plan.md#0-developer-flexibility-charter)
-- [framework-build-plan.md §1 — The strictness axis](../framework-build-plan.md#1-the-strictness-axis)
-- [mental-model.md §8 — Skill Spec Guidelines](../mental-model.md)
 - [agentskills.io specification](https://agentskills.io/specification)

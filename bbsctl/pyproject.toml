@@ -66,9 +66,6 @@ exclude = [
   "**/.fuse_hidden*",  # sandbox FUSE artifacts; never real source files
 ]
 
-[tool.hatch.build.targets.wheel.force-include]
-"src/skillctl/templates" = "skillctl/templates"
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra -q"

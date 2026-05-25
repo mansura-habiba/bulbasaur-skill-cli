@@ -1,0 +1,25 @@
+{
+  "skill_name": "hello-skill",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Say hi",
+      "expected_output": "A friendly hello reply that uses the skill body's instructions.",
+      "files": [],
+      "assertions": [
+        "The reply contains a greeting",
+        "The reply is short and conversational"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "What does this skill do?",
+      "expected_output": "A short description of the skill's purpose drawn from the SKILL.md body.",
+      "files": [],
+      "assertions": [
+        "The reply describes the skill's purpose",
+        "The reply references the skill body"
+      ]
+    }
+  ]
+}

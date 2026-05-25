@@ -1,7 +1,6 @@
 # Skill spec guidelines
 
 > **Status:** Placeholder — full document is a Phase 2 deliverable.
-> See [`framework-build-plan.md` §0 / §1](../framework-build-plan.md) for the broader plan.
 
 This document will be the internal extension of the public [agentskills.io specification](https://agentskills.io/specification) — naming every required field, every reserved field, every naming and versioning rule, every constraint on descriptions and triggers, every output contract requirement.
 

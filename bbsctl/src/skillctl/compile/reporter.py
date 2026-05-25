@@ -30,10 +30,10 @@ class Reporter(ABC):
     def on_start(self, *, skill_dir: str, strictness: str) -> None: ...
 
     @abstractmethod
-    def on_step(self, step_name: str, result: "StepResult") -> None: ...
+    def on_step(self, step_name: str, result: StepResult) -> None: ...
 
     @abstractmethod
-    def on_finish(self, result: "CompileResult") -> None: ...
+    def on_finish(self, result: CompileResult) -> None: ...
 
 
 class TextReporter(Reporter):
@@ -60,7 +60,7 @@ class TextReporter(Reporter):
         self._pipeline_failed = False
         print(f"bbsctl compile  ·  {skill_dir}  ·  strictness={strictness}", file=self._stream)
 
-    def on_step(self, step_name: str, result: "StepResult") -> None:
+    def on_step(self, step_name: str, result: StepResult) -> None:
         # Step icons keep the output skimmable.
         # Friction-audit F7: when the pipeline is already failing, an OK step
         # downstream shows as `~` (ran-anyway) rather than `✓` (clean success).
@@ -84,7 +84,7 @@ class TextReporter(Reporter):
         if outcome == "failed":
             self._pipeline_failed = True
 
-    def on_finish(self, result: "CompileResult") -> None:
+    def on_finish(self, result: CompileResult) -> None:
         elapsed_ms = 0
         if self._start_time is not None:
             elapsed_ms = int((time.monotonic() - self._start_time) * 1000)
@@ -112,7 +112,7 @@ class JsonReporter(Reporter):
     def on_start(self, *, skill_dir: str, strictness: str) -> None:
         self._emit({"event": "start", "skill_dir": skill_dir, "strictness": strictness})
 
-    def on_step(self, step_name: str, result: "StepResult") -> None:
+    def on_step(self, step_name: str, result: StepResult) -> None:
         self._emit(
             {
                 "event": "step",
@@ -129,7 +129,7 @@ class JsonReporter(Reporter):
             }
         )
 
-    def on_finish(self, result: "CompileResult") -> None:
+    def on_finish(self, result: CompileResult) -> None:
         self._emit(
             {
                 "event": "finish",
@@ -146,11 +146,11 @@ class NullReporter(Reporter):
     def on_start(self, *, skill_dir: str, strictness: str) -> None:
         pass
 
-    def on_step(self, step_name: str, result: "StepResult") -> None:
+    def on_step(self, step_name: str, result: StepResult) -> None:
         pass
 
-    def on_finish(self, result: "CompileResult") -> None:
+    def on_finish(self, result: CompileResult) -> None:
         pass
 
 
-__all__ = ["Reporter", "TextReporter", "JsonReporter", "NullReporter"]
+__all__ = ["JsonReporter", "NullReporter", "Reporter", "TextReporter"]

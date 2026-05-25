@@ -26,7 +26,6 @@ from .rules import (
     validate_name,
 )
 
-
 _FRONTMATTER_DELIMITER = "---"
 
 

@@ -11,8 +11,8 @@ function itself.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 from skillctl.strictness import Strictness
 
@@ -67,4 +67,4 @@ def build_pipeline(strictness: Strictness = Strictness.LOCAL) -> CompilePipeline
     return CompilePipeline(steps=steps)
 
 
-__all__ = ["build_pipeline", "register_step", "StepRegistration"]
+__all__ = ["StepRegistration", "build_pipeline", "register_step"]

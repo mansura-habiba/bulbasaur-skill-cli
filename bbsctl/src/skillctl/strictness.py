@@ -17,10 +17,10 @@ restricts its `--strictness` choices to honest values.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class Strictness(str, Enum):
+class Strictness(StrEnum):
     """Declared author-side strictness level.
 
     Inherits from str so it serializes naturally to JSON/YAML and compares
@@ -33,7 +33,7 @@ class Strictness(str, Enum):
     REGULATED = "regulated"
 
     @classmethod
-    def from_string(cls, value: str | None) -> "Strictness":
+    def from_string(cls, value: str | None) -> Strictness:
         """Parse a strictness string, defaulting to LOCAL.
 
         Accepts None and unknown values by returning LOCAL — the safest default
@@ -46,7 +46,7 @@ class Strictness(str, Enum):
         except ValueError:
             return cls.LOCAL
 
-    def includes(self, other: "Strictness") -> bool:
+    def includes(self, other: Strictness) -> bool:
         """Returns True if this strictness level requires everything `other` does.
 
         Used for cumulative checks: "does this skill at `org` need what `team` needs?"
@@ -80,7 +80,8 @@ def supported_levels(subcommand: str) -> list[str]:
     eliminating the vapor-options pattern caught by the Phase 1 friction audit.
     """
     levels = _SUPPORTED.get(subcommand, {Strictness.LOCAL})
-    return [s.value for s in (Strictness.LOCAL, Strictness.TEAM, Strictness.ORG, Strictness.REGULATED) if s in levels]
+    order = (Strictness.LOCAL, Strictness.TEAM, Strictness.ORG, Strictness.REGULATED)
+    return [s.value for s in order if s in levels]
 
 
 def register_support(subcommand: str, *levels: Strictness) -> None:

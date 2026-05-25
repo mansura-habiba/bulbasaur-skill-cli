@@ -1,0 +1,39 @@
+{
+  "skill_name": "log-analyzer",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Analyze this log and tell me what's wrong:\n2025-05-20 14:01:12 ERROR PaymentService - Connection refused to db-primary:5432\n2025-05-20 14:01:13 ERROR PaymentService - Connection refused to db-primary:5432\n2025-05-20 14:01:15 WARN  PaymentService - Retry limit exceeded for transaction tx-8812\n2025-05-20 14:01:15 ERROR PaymentService - Failed to process payment: DBConnectionException",
+      "expected_output": "A structured analysis identifying repeated database connection failures (db-primary:5432) as the root cause, with a retry exhaustion leading to a payment processing failure.",
+      "files": [],
+      "assertions": [
+        "The reply identifies db-primary:5432 connection failures as the root issue",
+        "The reply groups the related connection errors together",
+        "The reply notes the retry exhaustion as a downstream consequence",
+        "The reply recommends checking database availability first"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Look at these logs, is anything suspicious?\n2025-05-20 09:00:00 INFO  AuthService - Login successful user=admin\n2025-05-20 09:00:01 INFO  AuthService - Login successful user=admin\n2025-05-20 09:00:01 INFO  AuthService - Login successful user=admin\n2025-05-20 09:00:02 INFO  AuthService - Login successful user=admin\n2025-05-20 09:00:02 INFO  AuthService - Login successful user=admin",
+      "expected_output": "An anomaly report flagging rapid repeated successful logins for the same admin user as suspicious — possible credential replay or automated access.",
+      "files": [],
+      "assertions": [
+        "The reply flags the rapid login pattern as anomalous",
+        "The reply notes that 5 logins in 2 seconds for the same user is unusual",
+        "The reply does not dismiss the entries just because they are INFO level"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Here's a log with a secret: 2025-05-20 ERROR Config loaded with API_KEY=sk-live-abc123xyz",
+      "expected_output": "A warning that the log contains a credential (API_KEY) and should be redacted before further analysis.",
+      "files": [],
+      "assertions": [
+        "The reply detects the API key in the log entry",
+        "The reply warns about credential exposure",
+        "The reply does not echo the full API key value back"
+      ]
+    }
+  ]
+}

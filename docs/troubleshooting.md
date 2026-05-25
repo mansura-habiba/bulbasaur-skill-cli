@@ -121,4 +121,4 @@ The DX charter requires every user-facing error to carry a copy-pasteable `Fix:`
 - The exact command you ran.
 - The `SKILL.md` (if relevant).
 
-That counts as a release-blocker bug under our [DX metrics](../framework-build-plan.md#02-the-success-metrics-these-are-gates-not-aspirations).
+That counts as a release-blocker bug under our DX metrics.

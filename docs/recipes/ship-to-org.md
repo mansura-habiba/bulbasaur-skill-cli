@@ -15,7 +15,7 @@ When written, the recipe ships:
    - Declaring a cost budget (activation token budget, total token budget, per-activation ceiling).
    - Setting up Sigstore signing identity.
 2. **Run the full validator suite.** Registry-context trigger validation, prompt-injection corpus, semantic fuzz, output contract.
-3. **Publish to the org marketplace.** `bbsctl publish <skill> --target mcp-composer --marketplace <org-marketplace>` upserts into the MCP Composer runtime catalog with the org's tenant scoping (per the federation contract in [`mcp-composer-analysis.md`](../../mcp-composer-analysis.md) §10).
+3. **Publish to the org marketplace.** `bbsctl publish <skill> --target mcp-composer --marketplace <org-marketplace>` upserts into the MCP Composer runtime catalog with the org's tenant scoping.
 4. **Promotion workflow.** Named approver signs off; promotion event lands in the audit log.
 5. **Runtime observability.** OTel traces appear in the org's dashboard with per-skill latency, cost, policy denials, output-validation pass rate.
 

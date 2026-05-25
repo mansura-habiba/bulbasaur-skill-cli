@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import json
 import time
-from pathlib import Path
 from typing import Any
 
 from skillctl.agentskills import (
@@ -26,7 +25,6 @@ from skillctl.agentskills import (
     parse_skill_md,
 )
 from skillctl.messaging import FrameworkError
-from skillctl.strictness import Strictness
 
 from .pipeline import CompileContext, CompileStep, StepOutcome, StepResult
 
@@ -169,7 +167,7 @@ class EmitReportStep(CompileStep):
             payload={"report_path": str(report_path)},
         )
 
-        all_steps = list(context.step_results) + [self_result]
+        all_steps = [*list(context.step_results), self_result]
 
         report: dict[str, Any] = {
             "skillctl_version": _skillctl_version(),
@@ -213,12 +211,12 @@ def _skillctl_version() -> str:
         from skillctl import __version__
 
         return __version__
-    except Exception:  # noqa: BLE001
+    except Exception:
         return "unknown"
 
 
 __all__ = [
+    "EmitReportStep",
     "ParseFrontmatterStep",
     "ValidateAgentSkillsSpecStep",
-    "EmitReportStep",
 ]

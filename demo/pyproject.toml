@@ -1,0 +1,21 @@
+[project]
+name = "demo-project"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.14"
+dependencies = [
+    "bbsctl",
+]
+
+[tool.uv.sources]
+bbsctl = { path = "../bbsctl/dist/bbsctl-0.1.0-py3-none-any.whl" }
+
+[tool.bulbasaur]
+version = 1
+default_strictness = "team"
+
+[tool.bulbasaur.spec_lint]
+local = "skip"
+team = "warn"
+org = "block"
+regulated = "block"

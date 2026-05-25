@@ -23,20 +23,44 @@ import sys
 import traceback
 
 from skillctl import __version__
+from skillctl.commands import (
+    audit_cmd,
+    eval_cmd,
+    marketplace_cmd,
+    strictness_cmd,
+)
 from skillctl.commands import compile as compile_cmd
+from skillctl.commands import (
+    fetch as fetch_cmd,
+)
+from skillctl.commands import init as init_cmd
+from skillctl.commands import install as install_cmd
 from skillctl.commands import new as new_cmd
 from skillctl.commands import publish as publish_cmd
 from skillctl.commands import run as run_cmd
+from skillctl.commands import validate as validate_cmd
 from skillctl.messaging import FrameworkError, emit
-
 
 # Subcommand registration. Order here is the order shown in --help.
 # Each entry is a module exposing register(subparsers).
 _COMMANDS = [
+    # Project setup
+    init_cmd,
+    # Authoring
     new_cmd,
+    strictness_cmd,
+    # Build
     compile_cmd,
+    validate_cmd,
     run_cmd,
+    eval_cmd,
+    # Distribution
+    marketplace_cmd,
     publish_cmd,
+    install_cmd,
+    # Trust & external skills
+    fetch_cmd,
+    audit_cmd,
 ]
 
 
@@ -112,7 +136,7 @@ def main(argv: list[str] | None = None) -> int:
         # never lets these escape as a raw traceback (friction-audit F5).
         emit(_os_error_to_framework_error(exc, command=args.command))
         return 1
-    except Exception as exc:  # noqa: BLE001 — top-level safety net
+    except Exception as exc:
         # Any other unexpected exception is a framework bug. Surface a
         # FrameworkError-shaped message that still tells the user what to do.
         emit(_unexpected_exception_to_framework_error(exc, command=args.command))

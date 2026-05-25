@@ -3,3 +3,24 @@ mellea-analysis.md
 mental-model-critique.md
 state-of-rt.md
 mental-model.md
+old_mental_model.md
+framework-build-plan.md
+mcp-composer-analysis.md
+docs/adr/*
+docs/human-tasks.md
+.env.*
+
+# Build / cache artifacts
+*.pyc
+__pycache__/
+.DS_Store
+.pytest_cache/
+*.egg-info/
+bbsctl/dist/
+
+# make try artifacts
+.try-venv/
+.try-workspace/
+
+
+.governance/*

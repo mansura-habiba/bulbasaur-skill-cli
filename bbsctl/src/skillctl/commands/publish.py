@@ -58,6 +58,16 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         ),
     )
     p.add_argument(
+        "--marketplace",
+        default=None,
+        metavar="PATH",
+        help=(
+            "Path to a Bulbasaur team marketplace directory. "
+            "When set, publishes to the Git-backed marketplace (team tier). "
+            "Equivalent to `--target team-marketplace --option marketplace_dir=<path>`."
+        ),
+    )
+    p.add_argument(
         "--option",
         action="append",
         default=[],
@@ -99,6 +109,15 @@ def run(args: argparse.Namespace) -> int:
         )
         return 1
 
+    # --marketplace is a convenience shorthand for the team marketplace target.
+    if getattr(args, "marketplace", None):
+        return _run_team_marketplace_publish(
+            skill_dir=skill_dir,
+            frontmatter=frontmatter,
+            marketplace_path=Path(args.marketplace).resolve(),
+            strictness=Strictness.from_string(args.strictness),
+        )
+
     options = _parse_options(args.option)
     if options is None:
         return 1  # error already emitted
@@ -122,7 +141,10 @@ def run(args: argparse.Namespace) -> int:
     if not strictness.includes(target.min_strictness):
         emit(
             FrameworkError(
-                summary=f"target `{args.target}` requires strictness ≥ {target.min_strictness.value}",
+                summary=(
+                    f"target `{args.target}` requires strictness "
+                    f"≥ {target.min_strictness.value}"
+                ),
                 detail=f"this skill is at strictness {strictness.value}",
                 fix=(
                     f"Run `bbsctl strictness {target.min_strictness.value}` first to "
@@ -157,7 +179,10 @@ def _parse_options(raw: list[str]) -> dict[str, str] | None:
             emit(
                 FrameworkError(
                     summary=f"malformed --option value: {item!r}",
-                    fix="Use the form `--option key=value` (e.g. `--option marketplace_name=acme`).",
+                    fix=(
+                        "Use the form `--option key=value` "
+                        "(e.g. `--option marketplace_name=acme`)."
+                    ),
                 )
             )
             return None
@@ -176,6 +201,58 @@ def _resolve_output_dir(override: str | None, *, target_name: str, skill_dir: Pa
         return (skill_dir.parent / "bulbasaur-marketplace").resolve()
 
     return (skill_dir / "dist" / target_name).resolve()
+
+
+def _run_team_marketplace_publish(
+    *,
+    skill_dir: Path,
+    frontmatter,
+    marketplace_path: Path,
+    strictness: Strictness,
+) -> int:
+    """Publish a skill to a Git-backed team marketplace."""
+    import os
+
+    from skillctl.marketplace.git_marketplace import GitMarketplace
+
+    marketplace = GitMarketplace(marketplace_path)
+    if not marketplace.exists():
+        emit(
+            FrameworkError(
+                summary=f"marketplace not found: {marketplace_path}",
+                fix=f"Run `bbsctl marketplace init {marketplace_path}` first.",
+            )
+        )
+        return 1
+
+    skill_name = frontmatter.name or skill_dir.name
+    plugin_name = f"{skill_name}-plugin"
+    author_name = os.environ.get("USER") or "anonymous"
+
+    try:
+        plugin_dir = marketplace.publish_plugin(
+            plugin_name=plugin_name,
+            skill_name=skill_name,
+            skill_dir=skill_dir,
+            description=frontmatter.description or "",
+            strictness=strictness.value,
+            author_name=author_name,
+        )
+    except Exception as exc:
+        emit(FrameworkError(
+            summary=f"publish failed: {exc}",
+            fix="Check marketplace path and permissions.",
+        ))
+        return 1
+
+    mp_name = marketplace.name
+    info(f"published to marketplace `{mp_name}`")
+    info(f"  plugin: {plugin_dir}")
+    info("")
+    info("Next steps:")
+    info(f"  /plugin marketplace add {marketplace_path}")
+    info(f"  /plugin install {plugin_name}@{mp_name}")
+    return 0
 
 
 def _print_result(result) -> None:

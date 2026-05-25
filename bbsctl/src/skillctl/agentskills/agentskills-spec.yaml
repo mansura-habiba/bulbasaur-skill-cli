@@ -1,0 +1,147 @@
+# Agent Skills specification — field definitions.
+# Source: https://agentskills.io/specification
+#
+# This file is the single source of truth for:
+#   - Which fields exist in SKILL.md frontmatter
+#   - Their types, constraints, and validation rules
+#   - The placeholder values used when scaffolding a new skill
+#   - The recommended directory structure
+#
+# bbsctl reads this at scaffold time (bbsctl new) and at validation time
+# (bbsctl compile / bbsctl validate) to ensure every skill conforms to
+# the contract.
+
+spec_url: https://agentskills.io/specification
+spec_version: "1.0"
+
+# ── Frontmatter fields ──────────────────────────────────────────────────
+
+fields:
+  name:
+    required: true
+    type: string
+    min_length: 1
+    max_length: 64
+    pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+    rules:
+      - "Lowercase letters, numbers, and hyphens only"
+      - "Must not start or end with a hyphen"
+      - "Must not contain consecutive hyphens"
+      - "Must match the parent directory name"
+    placeholder: "{{name}}"
+    description: >-
+      Skill name. Used as the unique identifier for activation and
+      installation. Must match the parent directory name.
+
+  description:
+    required: true
+    type: string
+    min_length: 1
+    max_length: 1024
+    placeholder: "[What this skill does]. Use when [the trigger situation]."
+    description: >-
+      What the skill does and when to use it. The agent reads this to
+      decide whether to activate the skill. Include specific keywords
+      that help agents identify relevant tasks.
+    guidance:
+      - "Describe both WHAT and WHEN"
+      - "Include keywords the agent can match against user requests"
+      - "Start with a verb: Extracts, Generates, Analyzes, Validates..."
+
+  license:
+    required: false
+    type: string
+    placeholder: "Apache-2.0"
+    description: >-
+      License name or reference to a bundled license file.
+    example: "Proprietary. LICENSE.txt has complete terms"
+
+  compatibility:
+    required: false
+    type: string
+    min_length: 1
+    max_length: 500
+    placeholder: "Designed for Claude Code (or similar products)"
+    description: >-
+      Environment requirements. Only include if the skill has specific
+      needs (intended product, system packages, network access, etc.).
+    example: "Requires git, docker, jq, and access to the internet"
+
+  metadata:
+    required: false
+    type: mapping
+    placeholder:
+      author: "your-org"
+      version: "1.0"
+    description: >-
+      Arbitrary key-value mapping for additional metadata not defined
+      by the Agent Skills spec.
+    example:
+      author: example-org
+      version: "1.0"
+
+  allowed-tools:
+    required: false
+    type: string
+    placeholder: "Bash(git:*) Read"
+    description: >-
+      Space-separated string of tools that are pre-approved to run.
+      Experimental — support may vary between agent implementations.
+    example: "Bash(git:*) Bash(jq:*) Read"
+
+# ── Directory structure ─────────────────────────────────────────────────
+
+directories:
+  references:
+    required: false
+    description: >-
+      Additional documentation loaded progressively by the agent
+      at runtime. Keep individual files focused and small.
+    recommended_files:
+      - "REFERENCE.md — detailed technical reference"
+      - "Domain-specific files (finance.md, legal.md, etc.)"
+
+  scripts:
+    required: false
+    description: >-
+      Executable code that agents can run. Scripts should be
+      self-contained or clearly document dependencies.
+
+  assets:
+    required: false
+    description: >-
+      Static resources: templates, images, data files, schemas.
+
+# ── Body structure ──────────────────────────────────────────────────────
+
+body:
+  max_lines: 500
+  required_sections:
+    - title: Instructions
+      description: "Step-by-step instructions for what the skill does"
+  optional_sections:
+    - title: "When to use this skill"
+      description: >-
+        Activation cues that help the agent decide when to invoke this
+        skill. Be specific — the agent combines these cues with the
+        description field to decide whether to activate.
+    - title: "Guardrails"
+      description: >-
+        Safety boundaries and constraints the skill must respect.
+        What the skill must never do, input it must reject, and
+        fallback behaviour when conditions are not met.
+    - title: Examples
+      description: "Examples of inputs and expected outputs"
+    - title: "Edge cases"
+      description: "Common edge cases and how to handle them"
+    - title: References
+      description: >-
+        Pointers to files in references/ that the agent loads
+        progressively at runtime.
+
+# ── Progressive disclosure ──────────────────────────────────────────────
+
+progressive_disclosure:
+  metadata_budget_tokens: 100
+  instructions_budget_tokens: 5000
+  resources: "loaded on demand"

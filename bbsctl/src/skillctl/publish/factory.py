@@ -12,11 +12,10 @@ Adding a target:
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from .claude_code_local import ClaudeCodeLocalTarget
 from .target import PublishTarget
-
 
 _REGISTRY: dict[str, Callable[[], PublishTarget]] = {}
 

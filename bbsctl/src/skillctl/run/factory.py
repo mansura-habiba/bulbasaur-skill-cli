@@ -7,11 +7,10 @@ its constructor here and adding it to the `--runtime` choices in the CLI.
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from .mock import MockAgent
 from .runtime import AgentRuntime
-
 
 _REGISTRY: dict[str, Callable[[], AgentRuntime]] = {
     "mock": MockAgent,
@@ -36,4 +35,4 @@ def list_runtimes() -> list[str]:
     return sorted(_REGISTRY.keys())
 
 
-__all__ = ["build_runtime", "register_runtime", "list_runtimes"]
+__all__ = ["build_runtime", "list_runtimes", "register_runtime"]

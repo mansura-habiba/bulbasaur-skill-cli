@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -22,10 +22,10 @@ from skillctl.agentskills import SkillFrontmatter
 from skillctl.messaging import FrameworkError
 from skillctl.strictness import Strictness
 
-from .reporter import NullReporter, Reporter
+from .reporter import Reporter
 
 
-class StepOutcome(str, Enum):
+class StepOutcome(StrEnum):
     """Outcome of a single compile step."""
 
     OK = "ok"
@@ -142,7 +142,7 @@ class CompilePipeline:
 
             try:
                 result = step.run(context)
-            except Exception as exc:  # noqa: BLE001 — framework-level safety net
+            except Exception as exc:
                 # A bare exception is a framework bug, not a user error.
                 # Record it as a FAILED step with a structured message.
                 result = StepResult(

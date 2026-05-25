@@ -19,7 +19,12 @@ from skillctl.compile import (
     build_pipeline,
 )
 from skillctl.messaging import FrameworkError, emit
-from skillctl.strictness import Strictness, fail_if_unsupported, supported_levels
+from skillctl.project_config import load_project_config
+from skillctl.skill_yaml import SkillYamlError, load_skill_yaml
+from skillctl.strictness import Strictness, fail_if_unsupported, register_support, supported_levels
+
+# Phase 2: `team` strictness is now supported for compile.
+register_support("compile", Strictness.TEAM)
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
@@ -39,7 +44,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         "--strictness",
         default=None,
         choices=supported_levels("compile"),
-        help="Override strictness for this compile (default: read from skill.yaml or LOCAL). Phase 1 supports `local` only.",
+        help="Override strictness for this compile (default: read from skill.yaml or LOCAL).",
     )
     p.add_argument(
         "--output",
@@ -105,16 +110,19 @@ def _build_reporter(output: str) -> Reporter:
 
 
 def _resolve_strictness(skill_dir: Path, override: str | None) -> Strictness:
-    """Resolve strictness from (in order): CLI override, skill.yaml, default LOCAL.
-
-    Phase 1 does not implement skill.yaml reading (it lands in Phase 2 with the
-    enterprise overlay). For now the override or LOCAL is the only source.
-    """
+    """Resolve strictness: CLI override > skill.yaml > [tool.bulbasaur] > LOCAL."""
     if override:
         return Strictness.from_string(override)
 
-    # Phase 2: read skill_dir/skill.yaml for the `strictness:` key.
-    return Strictness.LOCAL
+    try:
+        overlay = load_skill_yaml(skill_dir)
+        if overlay is not None:
+            return overlay.strictness
+    except SkillYamlError:
+        pass  # parse error reported elsewhere; fall through to default
+
+    config = load_project_config(skill_dir)
+    return config.default_strictness
 
 
 __all__ = ["register", "run"]

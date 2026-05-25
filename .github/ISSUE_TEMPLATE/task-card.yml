@@ -1,0 +1,247 @@
+name: "Task Card"
+description: "File a unit of engineering work under the governance framework."
+title: "[TASK] "
+labels: ["task-card"]
+body:
+
+  - type: markdown
+    attributes:
+      value: |
+        ## What this form does
+        Every field below maps to a section of `.governance/task-card.schema.yaml`. When you submit, this issue body becomes a populated task card that AI assistants automatically load before generating code on your branch.
+
+        **Fill every field.** Empty fields cause CI to reject the PR that closes this issue.
+
+        - Quickstart for the framework → `.governance/README.md`
+        - The 4 governing principles → `.governance/philosophy.md`
+
+  # -------------------------------------------------------------------------
+  # Identity
+  # -------------------------------------------------------------------------
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: "Task type"
+      description: "Determines which CI checks run and which acceptance defaults apply."
+      options:
+        - feature
+        - bug
+        - refactor
+        - spike
+        - chore
+        - migration
+    validations:
+      required: true
+
+  - type: dropdown
+    id: tier
+    attributes:
+      label: "Strictness tier"
+      description: "Controls which optional fields become required at merge time."
+      default: 1
+      options:
+        - local
+        - team
+        - org
+        - regulated
+    validations:
+      required: true
+
+  # -------------------------------------------------------------------------
+  # Links — every related thing the AI and you must read first
+  # -------------------------------------------------------------------------
+
+  - type: input
+    id: parent_capability
+    attributes:
+      label: "Parent capability"
+      description: "Path to the capability spec this task contributes to. Required — every task belongs to exactly one capability."
+      placeholder: ".governance/capabilities/skill-registry.yaml"
+    validations:
+      required: true
+
+  - type: textarea
+    id: related_issues
+    attributes:
+      label: "Related issues"
+      description: "One issue ID per line. Search the tracker before filing — duplicates are the #1 source of wasted work."
+      placeholder: |
+        BBS-118
+        BBS-122
+
+  - type: textarea
+    id: design_docs
+    attributes:
+      label: "Required design docs / ADRs"
+      description: "One path per line. The AI will read these before generating code."
+      placeholder: |
+        docs/adr/0010-spec-lint-threshold-per-tier.md
+
+  # -------------------------------------------------------------------------
+  # Goal — externalize the end-goal that was only in someone's head
+  # -------------------------------------------------------------------------
+
+  - type: input
+    id: goal_one_liner
+    attributes:
+      label: "Goal — one liner"
+      description: 'Single sentence outcome. "After this ships, X is possible."'
+      placeholder: "After this ships, every spec rule has a passing reference fixture in CI."
+    validations:
+      required: true
+
+  - type: textarea
+    id: goal_bigger_picture
+    attributes:
+      label: "Goal — bigger picture"
+      description: "The wider initiative this serves, what comes next, the user-visible improvement. Minimum 50 characters — this is how we stop 'the end goal' from living only in one person's head."
+      placeholder: |
+        We're promoting spec-guidelines.md off placeholder. Without paired pass/fail fixtures,
+        the rules in skillctl are enforced but not documented by example. This task adds the
+        "pass" side; BBS-122 will add the "fail" side. Together they become the public reference.
+    validations:
+      required: true
+
+  - type: textarea
+    id: goal_done_looks_like
+    attributes:
+      label: "Goal — done looks like"
+      description: 'Concrete description of the merged state. Avoid "works correctly"; describe the observable outcome.'
+      placeholder: |
+        A new file tests/fixtures/spec-v1/minimum-valid-skill/SKILL.md exists, conforms to the
+        public agentskills.io spec at minimum, and a contract test asserts that skillctl validate
+        exits 0 on it.
+    validations:
+      required: true
+
+  # -------------------------------------------------------------------------
+  # Scope — the stop condition
+  # -------------------------------------------------------------------------
+
+  - type: textarea
+    id: in_scope
+    attributes:
+      label: "In scope"
+      description: "What this task delivers. One concrete deliverable per line."
+      placeholder: |
+        Add tests/fixtures/spec-v1/minimum-valid-skill/SKILL.md
+        Add tests/contract/test_minimum_valid_skill.py
+        Wire the test into CI
+    validations:
+      required: true
+
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: "Non-goals — at least one required"
+      description: "What this task explicitly does NOT do, even if a senior or the AI would naturally extend. **This is the stop condition.** AI assistants are forbidden from doing anything listed here."
+      placeholder: |
+        Do not add the broken-skill fixture — that is BBS-122
+        Do not change rules.py or the schema
+        Do not promote spec-guidelines.md off placeholder
+    validations:
+      required: true
+
+  # -------------------------------------------------------------------------
+  # Acceptance — the contract CI gates against
+  # -------------------------------------------------------------------------
+
+  - type: textarea
+    id: contract_tests
+    attributes:
+      label: "Contract tests — at least one required"
+      description: "Test IDs from `tests/contract/`. Format: `path/to/file.py::test_function`. AI must satisfy these — not invent new ones. If the test doesn't exist yet, the first commit on the branch authors it from the spec."
+      placeholder: |
+        tests/contract/test_minimum_valid_skill.py::test_minimum_valid_skill_passes_validation
+        tests/contract/test_minimum_valid_skill.py::test_fixture_path_is_kebab_case
+    validations:
+      required: true
+
+  - type: textarea
+    id: manual_checks
+    attributes:
+      label: "Manual checks"
+      description: "Things that genuinely need a human eye — architectural fit, UX nuance. Keep short. If it can be automated, write the test instead."
+
+  # -------------------------------------------------------------------------
+  # AI context — closes the "ignored docs" loop
+  # -------------------------------------------------------------------------
+
+  - type: textarea
+    id: required_reading
+    attributes:
+      label: "AI required reading"
+      description: "File paths the AI must read before generating code. Always include the parent capability and any design docs above. The framework injects these into the AI session."
+      placeholder: |
+        .governance/capabilities/skill-registry.yaml
+        skillctl/src/skillctl/agentskills/rules.py
+        docs/spec-guidelines.md
+    validations:
+      required: true
+
+  - type: textarea
+    id: do_not_modify
+    attributes:
+      label: "AI do-not-modify paths"
+      description: "Paths the AI cannot touch. Useful for stable contracts and generated code."
+      placeholder: |
+        skillctl/src/skillctl/agentskills/rules.py
+        docs/spec-guidelines.md
+
+  - type: textarea
+    id: preferred_patterns
+    attributes:
+      label: "Preferred patterns"
+      description: "How the AI should solve this — design patterns, library preferences, things to avoid."
+      placeholder: |
+        Match the directory layout used by reference-plugins/hello-skill
+        Use pytest, no new test framework
+        Test name describes the behavior, not the implementation
+
+  # -------------------------------------------------------------------------
+  # Ownership
+  # -------------------------------------------------------------------------
+
+  - type: input
+    id: author
+    attributes:
+      label: "Author"
+      description: "Engineer doing the work."
+      placeholder: "@your-handle"
+    validations:
+      required: true
+
+  - type: input
+    id: reviewer
+    attributes:
+      label: "Reviewer"
+      description: "Required reviewer. A single human, not a group alias."
+      placeholder: "@reviewer-handle"
+    validations:
+      required: true
+
+  - type: input
+    id: budget_hours
+    attributes:
+      label: "Time budget (hours)"
+      description: "If actual exceeds this by >50%, surface in the next standup."
+      placeholder: "4"
+
+  # -------------------------------------------------------------------------
+  # Confirmations — force re-read before submit
+  # -------------------------------------------------------------------------
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: "Before submitting"
+      options:
+        - label: "I searched the tracker for duplicates of this task."
+          required: true
+        - label: "I read the parent capability spec linked above."
+          required: true
+        - label: "Every non-goal I listed is something the AI would otherwise plausibly do."
+          required: true
+        - label: "Every contract test I listed exists, or I will author it as my first commit."
+          required: true

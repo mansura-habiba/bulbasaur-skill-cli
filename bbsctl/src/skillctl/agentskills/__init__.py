@@ -14,25 +14,28 @@ an issue upstream and may emit a warning at compile time.
 """
 
 from .frontmatter import (
-    parse_skill_md,
-    SkillFrontmatter,
     AgentSkillsValidationError,
+    SkillFrontmatter,
+    parse_skill_md,
 )
 from .rules import (
-    validate_name,
-    validate_description,
-    validate_compatibility,
-    validate_metadata,
     AGENTSKILLS_SPEC_URL,
+    validate_compatibility,
+    validate_description,
+    validate_metadata,
+    validate_name,
 )
+from .spec import SkillSpec, load_spec
 
 __all__ = [
-    "parse_skill_md",
-    "SkillFrontmatter",
-    "AgentSkillsValidationError",
-    "validate_name",
-    "validate_description",
-    "validate_compatibility",
-    "validate_metadata",
     "AGENTSKILLS_SPEC_URL",
+    "AgentSkillsValidationError",
+    "SkillFrontmatter",
+    "SkillSpec",
+    "load_spec",
+    "parse_skill_md",
+    "validate_compatibility",
+    "validate_description",
+    "validate_metadata",
+    "validate_name",
 ]

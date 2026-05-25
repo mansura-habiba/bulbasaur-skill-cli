@@ -7,7 +7,7 @@ The five-minute promise — from zero to running skill — measured wall-clock a
 - `uv` (the canonical Python toolchain — [install instructions](https://docs.astral.sh/uv/getting-started/installation/))
 - Python `>=3.11, <3.14` (uv installs this for you if needed)
 
-`pip` works as a fallback for environments where uv is not yet available, but uv is what the framework standardizes on. See [ADR 0002](../docs/adr/0002-uv-toolchain.md).
+`pip` works as a fallback for environments where uv is not yet available, but uv is what the framework standardizes on.
 
 ## The flow
 
