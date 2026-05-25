@@ -9,7 +9,6 @@ mcp-composer-analysis.md
 docs/adr/*
 docs/human-tasks.md
 .env.*
-
 # Build / cache artifacts
 *.pyc
 __pycache__/
@@ -24,3 +23,5 @@ bbsctl/dist/
 
 
 .governance/*
+AGENTS.md
+.github/workflows/governance.yml
