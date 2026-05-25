@@ -1,8 +1,10 @@
-# Bulbasaur
+# Bulbasaur Skill CLI
 
 A developer utility for building, validating, and managing AI agent skills — aligned with the [agentskills.io specification](https://agentskills.io/specification). One CLI (`bbsctl`) that covers the full skill lifecycle: scaffold, compile, audit, evaluate, publish, and install.
 
 Skills are validated contracts with frontmatter metadata, structured body sections (instructions, guardrails, triggers, examples), and an eval corpus that scores assertions against actual output. Skills are versioned through `skills.lock` — content-addressed by sha256 digest — so every team member gets the exact same versions.
+
+[Youtube Demo](https://youtu.be/CzdyEzq22rI)
 
 Two workflows:
 
@@ -301,6 +303,8 @@ The `Fix` line is always copy-pasteable. The audit-enforced rule is that 90%+ of
 - [`docs/design-patterns.md`](docs/design-patterns.md) — Strategy, Factory, Adapter, Decorator patterns
 - [`docs/best-practices.md`](docs/best-practices.md) — authoring guidance
 - [`docs/troubleshooting.md`](docs/troubleshooting.md) — error → fix table
+
+
 
 ## Architecture
 
