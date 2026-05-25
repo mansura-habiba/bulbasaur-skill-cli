@@ -1,10 +1,13 @@
 # Bulbasaur
 
-A skill framework for agentic development — aligned with the [agentskills.io specification](https://agentskills.io/specification). Skills are versioned, validated, published, and consumed like production dependencies.
+A developer utility for building, validating, and managing AI agent skills — aligned with the [agentskills.io specification](https://agentskills.io/specification). One CLI (`bbsctl`) that covers the full skill lifecycle: scaffold, compile, audit, evaluate, publish, and install.
 
-> **North star.** Every skill must be designed, compiled, validated, deployed, monitored, and evaluated like production code — because once skills control agent behavior, they *are* production code.
+Skills are validated contracts with frontmatter metadata, structured body sections (instructions, guardrails, triggers, examples), and an eval corpus that scores assertions against actual output. Skills are versioned through `skills.lock` — content-addressed by sha256 digest — so every team member gets the exact same versions.
 
-> **The five-minute promise.** A fresh developer with `uv` installed can scaffold and run their first skill in under five minutes. No marketplace setup. No signing. No ownership document. No policy configuration. Friction climbs with the strictness level the developer opts into, never ahead of it.
+Two workflows:
+
+1. **Author your own** — scaffold from the agentskills.io spec, compile, audit, evaluate, publish to a team marketplace, install as a locked dependency.
+2. **Consume external skills** — fetch from [skills.sh](https://skills.sh) or GitHub, quarantine in staging, trust-audit (guardrails, scripts, permissions), install after review.
 
 ## Install
 
@@ -13,110 +16,33 @@ A skill framework for agentic development — aligned with the [agentskills.io s
 uv add bbsctl
 
 # From source (development)
-make install      # builds wheel → installs into .try-venv
+make install
 ```
 
 ## Quickstart
 
-`uv` is the canonical Python toolchain — [install it first](https://docs.astral.sh/uv/getting-started/installation/) if you don't have it.
+[Install `uv`](https://docs.astral.sh/uv/getting-started/installation/) if you don't have it.
 
 ```bash
-# 1. Initialise your project (writes [tool.bulbasaur] to pyproject.toml)
-bbsctl init --strictness team
+# 1. Initialise your project
+uv run bbsctl init --strictness team
 
-# 2. Scaffold a new skill from the agentskills.io spec
-bbsctl new my-skill
+# 2. Scaffold a skill from the agentskills.io spec
+uv run bbsctl new log-analyzer
 
-# 3. Edit the generated contract
-#    → Fill in placeholders in SKILL.md (description, instructions, guardrails)
-#    → Uncomment optional fields you need (license, compatibility, metadata)
+# 3. Fill in the contract
+#    → Edit log-analyzer/SKILL.md: description, instructions, guardrails, examples
 
 # 4. Compile — validates frontmatter against the spec
-bbsctl compile
+cd log-analyzer && uv run bbsctl compile
 
 # 5. Run — mock agent activates the skill
-bbsctl run
+uv run bbsctl run
 ```
 
-See [`quickstart/`](quickstart/) for the full five-minute walkthrough and [`docs/quickstart.md`](docs/quickstart.md) for the longer guide.
-
-## The skill contract
-
-Every skill is scaffolded from a **spec-driven YAML schema** ([`agentskills-spec.yaml`](bbsctl/src/skillctl/agentskills/agentskills-spec.yaml)) that defines every field, constraint, and placeholder. When you run `bbsctl new`, you get a complete contract — not a blank file:
-
-```yaml
----
-name: my-skill
-description: '[What My Skill does]. Use when [the trigger situation for my-skill].'
-
-# Optional fields — uncomment and fill in as needed.
-# Full spec: https://agentskills.io/specification
-# license: Apache-2.0
-# compatibility: Designed for Claude Code (or similar products)
-# metadata:
-#   author: your-org
-#   version: 1.0
-# allowed-tools: Bash(git:*) Read
----
-
-## Instructions
-1. [Step-by-step instructions for what the skill does]
-2. [Continue with each discrete step]
-3. [End with how to present the result]
-
-## When to use this skill
-- [Trigger condition 1: e.g. "User asks to extract data from a PDF"]
-- [Trigger condition 2: e.g. "User mentions document conversion"]
-
-## Guardrails
-- **Must never:** [Action the skill must never take]
-- **Must reject:** [Input the skill must refuse, e.g. "Reject PII in prompts"]
-- **Must fallback:** [Behaviour when preconditions are not met]
-
-## Examples
-**Input:** [Describe an example user request]
-**Output:** [Describe the expected response]
-
-## Edge cases
-- [Describe a common edge case and how to handle it]
-```
-
-The directory structure follows the [agentskills.io specification](https://agentskills.io/specification):
-
-```
-my-skill/
-├── SKILL.md          # Required: metadata + instructions (the contract)
-├── references/       # Optional: documentation (progressive loading)
-├── scripts/          # Optional: executable code
-├── assets/           # Optional: templates, data files, schemas
-└── skill.yaml        # team+ only: enterprise overlay (strictness, ownership)
-```
-
-### Spec fields
-
-| Field | Required | Constraint | Purpose |
-|---|---|---|---|
-| `name` | Yes | 1–64 chars, lowercase kebab-case, must match directory name | Unique identifier for activation |
-| `description` | Yes | ≤ 1024 chars | Agent reads this to decide whether to activate |
-| `license` | No | — | License name or reference to bundled file |
-| `compatibility` | No | ≤ 500 chars | Environment requirements (product, packages, network) |
-| `metadata` | No | Key-value map | Arbitrary metadata (author, version, etc.) |
-| `allowed-tools` | No | Space-separated string | Pre-approved tools (experimental) |
-
-### Body sections
-
-| Section | Purpose |
-|---|---|
-| **Instructions** | Step-by-step instructions for what the skill does |
-| **When to use this skill** | Activation cues — positive and negative triggers |
-| **Guardrails** | Safety boundaries: what to never do, what to reject, fallback behaviour |
-| **Examples** | Input/output examples for the agent |
-| **Edge cases** | Known edge cases and how to handle them |
-| **References** | Pointers to files loaded progressively at runtime |
+That's the five-minute promise. From here you can climb the strictness ladder, add evals, publish to a marketplace, or fetch external skills.
 
 ## The two lifecycles
-
-Every skill follows one of two paths — **generate** (author your own) or **fetch** (consume someone else's). Both paths converge on the same audit → evaluate → install pipeline.
 
 ```
 Use Case 1: Generate                 Use Case 2: Fetch
@@ -125,158 +51,230 @@ bbsctl new                           bbsctl fetch <url>
     │                                    │
     ▼                                    ▼
 bbsctl compile                       ┌─────────────┐
-    │                                │  staged in   │
-    ▼                                │  .bulbasaur/ │
-bbsctl audit                         │  staging/    │
-    │                                └──────┬──────┘
-    ▼                                       │
-bbsctl eval                          bbsctl audit
-    │                                    │
-    ▼                                    ▼
-bbsctl publish                       bbsctl eval
-    │                                    │
-    ▼                                    ▼
-bbsctl add / install                 bbsctl add --staged / install
+    │                                │  quarantined │
+    ▼                                │  in staging  │
+bbsctl audit                         └──────┬──────┘
+    │                                       │
+    ▼                                bbsctl audit
+bbsctl eval                              │
+    │                                    ▼
+    ▼                                bbsctl eval
+bbsctl publish                           │
+    │                                    ▼
+    ▼                                bbsctl add --staged
+bbsctl add / install                 bbsctl install
 ```
-
-Each stage is a separate subcommand. Each stage is pluggable through a Strategy/Factory abstraction so you can swap implementations without touching the CLI.
-
-| Stage | Command | What it does |
-|---|---|---|
-| Design | `bbsctl new` | Scaffold `SKILL.md` from the spec + `skill.yaml` at team+ |
-| Compile | `bbsctl compile` | Parse frontmatter, validate against [agentskills.io](https://agentskills.io/specification), emit report |
-| Fetch | `bbsctl fetch` | Download a skill from skills.sh or GitHub into `.bulbasaur/staging/` |
-| Audit | `bbsctl audit` | Trust audit: spec-completeness, guardrails, scripts, broad permissions |
-| Validate | `bbsctl validate --fast` | Structural checks: enterprise-spec, trigger heuristic, output-contract |
-| Run | `bbsctl run` | Execute against an `AgentRuntime` adapter (mock today) |
-| Evaluate | `bbsctl eval` *(Phase 3)* | Run the `evals/` corpus — triggers, behavior, injection, regression |
-| Publish | `bbsctl publish` | Emit via a `PublishTarget` (marketplace, Claude Code, MCP Composer) |
-| Install | `bbsctl add / install / lock` | Consume skills from a marketplace into `.bulbasaur/cache` via `skills.lock` |
-
-Project-level config lives in `pyproject.toml` under `[tool.bulbasaur]`; `bbsctl init` writes it for you.
-
-## Usage walkthrough
 
 ### Use Case 1: Generate → Audit → Evaluate → Install
 
-Author a skill from scratch, validate it, publish to a marketplace, and consume it.
+Author a skill, validate it, evaluate it against assertions, and share it.
 
 ```bash
-# Initialise the project
-bbsctl init --strictness team
+# Scaffold and compile
+uv run bbsctl new log-analyzer
+cd log-analyzer && uv run bbsctl compile
 
-# Scaffold a new skill
-bbsctl new pdf-processor
-
-# Fill in the contract (edit SKILL.md: description, instructions, guardrails, examples)
-cd pdf-processor && bbsctl compile
-
-# Promote to team strictness
-bbsctl strictness team --yes
+# Promote to team strictness (adds skill.yaml with ownership)
+uv run bbsctl strictness team --yes
 
 # Audit and validate
-bbsctl audit .
-bbsctl validate --fast
+uv run bbsctl audit .
+uv run bbsctl validate --fast
 
-# Evaluate (behavioral checks against the evals/ corpus)
-bbsctl eval
+# Write an eval corpus (evals/behavior.json) and evaluate
+uv run bbsctl eval
 
-# Publish to a marketplace
-bbsctl marketplace init ../my-team-marketplace
-bbsctl publish --marketplace ../my-team-marketplace
+# Publish to a team marketplace
+uv run bbsctl marketplace init ../my-team-marketplace
+uv run bbsctl publish --marketplace ../my-team-marketplace
 
 # Consume in another project
 cd ../consumer-project
-bbsctl add pdf-processor-plugin@../my-team-marketplace
-bbsctl install
+uv run bbsctl add log-analyzer-plugin@../my-team-marketplace
+uv run bbsctl install
 ```
 
 ### Use Case 2: Fetch → Audit → Evaluate → Install
 
-Fetch a skill from a public catalog, audit it for trust, and install only after review.
+Fetch an external skill, audit it for trust, and install only after review.
 
 ```bash
 # Fetch from skills.sh or GitHub — auto-runs a trust audit
-bbsctl fetch vercel-labs/agent-skills/web-design-guidelines
+uv run bbsctl fetch vercel-labs/agent-skills/web-design-guidelines
 
 # Review the staged skill (quarantined in .bulbasaur/staging/)
 cat .bulbasaur/staging/web-design-guidelines/SKILL.md
 
 # Re-audit if needed
-bbsctl audit .bulbasaur/staging/web-design-guidelines
-
-# Evaluate against your own assertions
-bbsctl eval .bulbasaur/staging/web-design-guidelines
+uv run bbsctl audit .bulbasaur/staging/web-design-guidelines
 
 # Install only when satisfied
-bbsctl add --staged web-design-guidelines
-bbsctl install
+uv run bbsctl add --staged web-design-guidelines
+uv run bbsctl install
 ```
 
-### JSON output for CI
+## The skill contract
+
+Every skill is scaffolded from a **spec-driven YAML schema** ([`agentskills-spec.yaml`](bbsctl/src/skillctl/agentskills/agentskills-spec.yaml)). When you run `bbsctl new`, you get a complete contract — not a blank file:
+
+```yaml
+---
+name: log-analyzer
+description: Analyze application log files to identify errors, warnings, and anomalies.
+  Use when the user asks to investigate logs or diagnose application issues.
+# license: Apache-2.0
+# compatibility: Designed for Claude Code (or similar products)
+# metadata:
+#   author: your-org
+#   version: 1.0
+# allowed-tools: Bash(grep:*) Read
+---
+
+## Instructions
+1. Read the provided log file or log snippet from the user's input.
+2. Parse each log entry and classify by severity: ERROR, WARN, INFO, DEBUG.
+3. Group related errors by stack trace or error code to identify distinct issues.
+4. Present a structured report: critical errors first, then warnings, then anomalies.
+
+## When to use this skill
+- User asks to "look at", "analyze", or "investigate" a log file
+- User pastes log output and asks "what went wrong?"
+- Do NOT activate for metric dashboards — those are not logs
+
+## Guardrails
+- **Must never:** Modify or delete the original log files
+- **Must reject:** Log snippets containing credentials or API keys — flag and redact
+- **Must fallback:** If the log format is unrecognized, ask the user to clarify
+
+## Examples
+**Input:** "Analyze this log file and tell me why the service keeps crashing"
+**Output:** 3 distinct crash patterns: OOM kills (5x), connection pool exhaustion (2x),
+unhandled NullPointerException in PaymentService.process() (1x). Investigate OOM first.
+
+## Edge cases
+- Interleaved logs from multiple services: group by service name before analyzing
+- Massive log files (>100MB): suggest filtering by time range first
+```
+
+### Skill directory structure
+
+```
+log-analyzer/
+├── SKILL.md          # Required: metadata + instructions (the contract)
+├── evals/            # Eval corpus (behavior.json, triggers.json, injection.json)
+├── references/       # Optional: documentation (progressive loading)
+├── scripts/          # Optional: executable code
+├── assets/           # Optional: templates, data files, schemas
+└── skill.yaml        # team+ only: enterprise overlay (strictness, ownership)
+```
+
+## Evaluating skills
+
+Validation is structural (does the manifest parse?). **Evaluation is behavioral** — given a corpus of test prompts, does the skill produce the right output and satisfy each declared assertion?
+
+```json
+{
+  "skill_name": "log-analyzer",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Analyze this log and tell me what's wrong:\n2025-05-20 14:01:12 ERROR PaymentService - Connection refused to db-primary:5432\n2025-05-20 14:01:15 ERROR PaymentService - Failed to process payment: DBConnectionException",
+      "expected_output": "Database connection failures as root cause, retry exhaustion leading to payment failure.",
+      "assertions": [
+        "The reply identifies db-primary:5432 connection failures as the root issue",
+        "The reply recommends checking database availability first"
+      ]
+    }
+  ]
+}
+```
 
 ```bash
-bbsctl validate --output json > report.json
-bbsctl compile  --output json > compile-report.json
+uv run bbsctl eval                              # all suites
+uv run bbsctl eval --suite behavior             # one suite
+uv run bbsctl eval --output json > report.json  # CI
 ```
 
-### Makefile targets (development)
+The mock runtime + heuristic judge is deterministic — no LLM, no API key. Real LLM judging via the Claude Agent SDK adapter uses the same interface.
+
+See [`docs/evaluation.md`](docs/evaluation.md) for the full spec, case schema, and CI recipes.
+
+## The trust audit
+
+Every external skill passes through a trust audit before installation. The audit checks:
+
+| Check | What it catches |
+|---|---|
+| **spec-completeness** | Missing required fields, name mismatches |
+| **body-sections** | Missing Instructions, Guardrails, or When-to-use sections |
+| **guardrails-quality** | Skills with no safety boundaries defined |
+| **scripts** | Executable code bundled with the skill |
+| **broad-permissions** | Overly permissive `allowed-tools` declarations |
+| **enterprise-overlay** | Missing `skill.yaml` at team+ strictness |
 
 ```bash
-make build     # Build the wheel into bbsctl/dist/
-make install   # Build + install wheel into .try-venv
-make try       # Install + run the full end-to-end developer journey
-make test      # Run the test suite
-make lint      # Run ruff
-make clean     # Remove build artifacts
+uv run bbsctl audit .bulbasaur/staging/web-design-guidelines
+uv run bbsctl audit --output json  # for CI gates
 ```
+
+Verdict is one of: **TRUSTED**, **TRUSTED (with warnings)**, or **DO NOT TRUST (without review)**.
 
 ## The strictness ladder
 
-Strictness is the primary axis of developer flexibility. It declares how much friction the author has agreed to. The framework asks for more as the author climbs the ladder — never ahead of it.
+Strictness controls how much friction the framework applies. It climbs with you — never ahead of you.
 
 | Level | What the framework requires | Typical use |
 |---|---|---|
 | `local` (default) | Spec-valid `SKILL.md` only | Solo dev, prototyping |
-| `team` | + ownership stub, fast validators, team marketplace, `skill.yaml` | Small-team sharing |
+| `team` | + `skill.yaml`, ownership stub, fast validators, team marketplace | Small-team sharing |
 | `org` | + full validators, **eval corpus + passing report**, signing, OTel, cost budgets | Production internal use |
 | `regulated` | + regulatory sign-off, pinned eval corpora, retention SLAs, strict gates | High-risk workflows |
 
 ```bash
-bbsctl strictness team    # adds skill.yaml, prompts for ownership stub
-bbsctl strictness org     # full enterprise overlay, prompts to sign (Phase 3)
+uv run bbsctl strictness team     # adds skill.yaml, prompts for ownership stub
+uv run bbsctl strictness org      # full enterprise overlay (Phase 3)
 ```
 
 The framework does not force escalation. The **marketplace is the gate** that refuses to host skills below its declared strictness.
 
-## Evaluating skills *(Phase 3)*
+## CLI reference
 
-Validation is structural (does the manifest parse, are the fields sane). **Evaluation is behavioral** (given a corpus of test prompts, does the skill produce the right output and satisfy each declared assertion).
+| Command | What it does |
+|---|---|
+| `bbsctl init` | Write `[tool.bulbasaur]` config to `pyproject.toml` |
+| `bbsctl new <name>` | Scaffold `SKILL.md` from the spec |
+| `bbsctl compile` | Parse frontmatter, validate against agentskills.io, emit report |
+| `bbsctl run` | Execute against an `AgentRuntime` adapter |
+| `bbsctl strictness <level>` | Promote a skill to a higher strictness level |
+| `bbsctl validate --fast` | Structural checks: enterprise-spec, trigger heuristic, output-contract |
+| `bbsctl eval` | Run the `evals/` corpus and score assertions |
+| `bbsctl audit <path>` | Trust audit: spec-completeness, guardrails, scripts, permissions |
+| `bbsctl fetch <url>` | Download from skills.sh or GitHub into `.bulbasaur/staging/` |
+| `bbsctl marketplace init` | Create a Git-backed team marketplace |
+| `bbsctl publish --marketplace` | Publish a skill to a marketplace |
+| `bbsctl add <skill>@<source>` | Install a skill from a marketplace into `skills.lock` |
+| `bbsctl add --staged <name>` | Install a skill from the staging area |
+| `bbsctl install` | Install all skills from `skills.lock` |
+| `bbsctl list` | List installed skills |
 
-`bbsctl eval` reads an `evals/` directory next to the skill:
+Every command supports `--output json` for CI integration.
+
+## Error contract
+
+Every error in the framework has the same shape — summary, detail, fix, docs:
 
 ```
-my-skill/
-├── SKILL.md
-├── skill.yaml
-└── evals/
-    ├── behavior.json       # prompt → expected_output + assertions
-    ├── triggers.json       # activation-only cases (positive/negative)
-    ├── injection.json      # required at org+ (pinned at regulated)
-    └── snapshots/          # recorded outputs for regression compare
+ERROR: invalid skill name: must be lowercase (no uppercase letters)
+  Detail: agentskills.io rule violation (code=pattern)
+  Fix:    Rename to a lowercase kebab-case identifier (e.g. `my-skill`).
+  Docs:   https://agentskills.io/specification#name-field
 ```
 
-```bash
-bbsctl eval                            # all suites
-bbsctl eval --suite behavior           # one suite
-bbsctl eval --output json > report.json  # CI
-```
-
-See [`docs/evaluation.md`](docs/evaluation.md) for the full spec, case schema, and CI recipes.
+The `Fix` line is always copy-pasteable. The audit-enforced rule is that 90%+ of errors carry a Fix.
 
 ## Current status
 
-| Stage | Status | Notes |
+| Command | Status | Notes |
 |---|---|---|
 | `bbsctl new` | **Shipped** | Spec-driven scaffold with all fields + sections |
 | `bbsctl compile` | **Shipped** | Frontmatter validation against agentskills.io |
@@ -296,45 +294,57 @@ See [`docs/evaluation.md`](docs/evaluation.md) for the full spec, case schema, a
 
 ## Documentation
 
-- [`docs/quickstart.md`](docs/quickstart.md) — five-minute walkthrough
+- [`docs/demo.md`](docs/demo.md) — 8-minute live demo walkthrough
 - [`docs/strictness-levels.md`](docs/strictness-levels.md) — the strictness axis explained
+- [`docs/evaluation.md`](docs/evaluation.md) — the eval corpus convention and `bbsctl eval`
 - [`docs/spec-guidelines.md`](docs/spec-guidelines.md) — the spec, aligned with [agentskills.io](https://agentskills.io)
-- [`docs/design-patterns.md`](docs/design-patterns.md) — skill design patterns (Strategy, Factory, Adapter, Decorator)
+- [`docs/design-patterns.md`](docs/design-patterns.md) — Strategy, Factory, Adapter, Decorator patterns
 - [`docs/best-practices.md`](docs/best-practices.md) — authoring guidance
-- [`docs/evaluation.md`](docs/evaluation.md) — the eval corpus convention and `bbsctl eval` *(Phase 3)*
 - [`docs/troubleshooting.md`](docs/troubleshooting.md) — error → fix table
-- [`docs/friction-audit.md`](docs/friction-audit.md) — per-phase DX audit protocol
 
 ## Architecture
 
-The framework is built on three reusable design patterns (per [`docs/design-patterns.md`](docs/design-patterns.md)):
+The framework is built on three reusable patterns (per [`docs/design-patterns.md`](docs/design-patterns.md)):
 
 - **Strategy + Factory** — `CompileStep`, `Validator`, `Evaluator`, `AgentRuntime`, `PublishTarget`. Each is an interface; concrete implementations register through a factory. Adding a new validator or runtime is one class plus one registration line.
-- **Adapter** — for cross-framework runtimes (Claude Agent SDK, MCP, LangGraph, CrewAI, LangFlow). Each adapter normalizes a foreign runtime into the `AgentRuntime` interface so `bbsctl run` and `bbsctl eval` don't care which one is in use.
+- **Adapter** — for cross-framework runtimes (Claude Agent SDK, MCP, LangGraph, CrewAI). Each adapter normalizes a foreign runtime into the `AgentRuntime` interface so `bbsctl run` and `bbsctl eval` don't care which one is in use.
 - **Decorator** — for cross-cutting concerns (telemetry, cost budgeting, audit logging) layered on top of runtimes and evaluators without modifying them.
 
 ## Project layout
 
 ```
-bulbasaur/
+bulbasaur-skill-cli/
 ├── bbsctl/                       the CLI package (Python ≥3.11, module: skillctl)
 │   ├── src/skillctl/
 │   │   ├── agentskills/          spec parser, rules, agentskills-spec.yaml
+│   │   ├── audit/                trust audit checks and runner
 │   │   ├── commands/             CLI subcommands
 │   │   ├── compile/              compile pipeline (Strategy pattern)
 │   │   ├── eval/                 evaluator framework
 │   │   ├── marketplace/          Git-backed marketplace + skills.lock
-│   │   ├── runtime/              AgentRuntime adapters
+│   │   ├── publish/              publish targets
+│   │   ├── run/                  AgentRuntime adapters
 │   │   ├── templates/            SKILL.md templates per strictness level
 │   │   └── validate/             validator chain
 │   ├── tests/
 │   └── pyproject.toml
+├── reference-plugins/            demo skills (hello-skill, log-analyzer)
 ├── quickstart/                   the five-minute experience
 ├── docs/                         guides, recipes, audits
-├── reference-plugins/            full-featured skill demos
 ├── tests/                        cross-cutting contract tests
 ├── Makefile                      build, install, try, test, lint, clean
 └── .governance/                  capability + acceptance schemas
+```
+
+## Makefile targets
+
+```bash
+make build     # Build the wheel into bbsctl/dist/
+make install   # Build + install wheel into .try-venv
+make try       # Install + run the full end-to-end developer journey
+make test      # Run the test suite
+make lint      # Run ruff
+make clean     # Remove build artifacts
 ```
 
 ## Contributing
