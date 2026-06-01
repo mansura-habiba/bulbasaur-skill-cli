@@ -1,0 +1,63 @@
+schema_version: bulbasaur/v1
+policy:
+  name: internal-tier-1
+  version: 1.0.0
+  effective_date: 2026-01-01
+  expiry_date: 2099-12-31
+  authority: platform-engineering@example.com
+  description: >
+    Baseline policy for org-internal skills. Applies at `org` strictness.
+    Tighter than the framework's hardcoded `org` defaults and intended as
+    the default policy every team starts from before layering more specific
+    industry policies on top (HIPAA, SOC2, etc).
+
+  applies_to_strictness: [org, regulated]
+
+  required_artifacts:
+    files:
+      - skill.yaml
+      - permissions.yaml
+      - ownership.yaml
+      - evals/behavior.json
+    directories:
+      - references/
+
+  ownership:
+    required_fields: [team, contact, runbook, on_call, business_owner, cost_owner]
+    last_reviewed_max_age_days: 365
+    require_security_reviewer: false
+
+  eval:
+    min_score: 1.0
+    min_threshold: 1.0
+    required_suites: [behavior]
+    snapshots_required: true
+    judge_must_be_llm: false
+    model_upgrade:
+      re_eval_required: true
+      block_on_regression: true
+      regression_threshold: 0.0
+
+  permissions:
+    require_default_deny: [commands, network, mcp_tools]
+    forbidden_commands:
+      - pattern: '\brm -rf\b'
+        reason: "uncontained filesystem destruction"
+      - pattern: '\bkubectl\s+exec\b.*(-it|--stdin|--tty)'
+        reason: "interactive shells prohibited by IntentGuardPolicy"
+      - pattern: '\bdelete_all_\w+'
+        reason: "data destruction without approval"
+    require_namespace_isolation: true
+
+  audit:
+    retention_days: 365
+    tamper_evident: false
+    fail_mode: fail-degraded
+    required_fields: [model_version, prompt_hash, hook_outcome, latency_ms]
+
+  cost:
+    max_tokens_per_run: 100000
+
+  compliance_frameworks:
+    - id: NIST.AI.100-1
+      controls: [GOVERN-1.1, MAP-1.1, MEASURE-2.1]

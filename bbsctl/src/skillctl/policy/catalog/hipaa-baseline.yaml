@@ -1,0 +1,102 @@
+schema_version: bulbasaur/v1
+policy:
+  name: hipaa-baseline
+  version: 1.0.0
+  effective_date: 2026-01-01
+  expiry_date: 2027-12-31
+  authority: compliance-team@example.com
+  description: >
+    HIPAA baseline policy for skills that may process or be exposed to PHI.
+    Maps to HIPAA Security Rule administrative, physical, and technical
+    safeguards. Tighter than internal-tier-1 in audit retention (~7 years),
+    ownership review cadence (semi-annual), and judge quality (LLM required).
+
+  applies_to_strictness: [regulated]
+
+  required_artifacts:
+    files:
+      - skill.yaml
+      - permissions.yaml
+      - ownership.yaml
+      - evals/behavior.json
+      - evals/injection.json
+    directories:
+      - evals/snapshots/
+      - approvals/
+    references_must_exist: true
+
+  ownership:
+    required_fields: [team, contact, runbook, on_call, business_owner, cost_owner]
+    last_reviewed_max_age_days: 180
+    require_security_reviewer: true
+
+  eval:
+    min_score: 1.0
+    min_threshold: 1.0
+    required_suites: [behavior, injection]
+    injection_corpus_pinned: true
+    snapshots_required: true
+    judge_must_be_llm: true
+    model_upgrade:
+      re_eval_required: true
+      block_on_regression: true
+      regression_threshold: 0.0
+
+  permissions:
+    require_default_deny: [commands, network, mcp_tools, filesystem]
+    forbidden_commands:
+      - pattern: '\bdelete_all_\w+'
+        reason: "data destruction without approval (HIPAA 164.308(a)(1))"
+      - pattern: '\bdrop\s+(table|database)\b'
+        reason: "schema destruction"
+      - pattern: '\bkubectl\s+exec\b.*(-it|--stdin|--tty)'
+        reason: "interactive shells prohibited (audit-trail integrity)"
+      - pattern: 'curl\s+.*\|\s*(bash|sh)'
+        reason: "remote code execution pattern"
+    require_namespace_isolation: true
+    redact_required_patterns:
+      - '.*_PHI'
+      - '.*_PII'
+      - '.*_SSN'
+      - '.*_MRN'           # medical record number
+      - '.*_DOB'           # date of birth
+
+  audit:
+    retention_days: 2555   # ~7 years (HIPAA retention)
+    tamper_evident: true
+    fail_mode: fail-closed
+    required_fields:
+      - model_version
+      - prompt_hash
+      - hook_outcome
+      - latency_ms
+      - cost_usd
+      - patient_id_hash    # if PHI domain
+      - user_id
+
+  approval:
+    required_approvers:
+      - role: security-reviewer
+        count: 1
+      - role: business-owner
+        count: 1
+      - role: compliance-officer
+        count: 1
+    sign_off_yaml_required: true
+
+  cost:
+    max_tokens_per_run: 50000
+    max_cost_usd_per_month: 1000.0
+
+  compliance_frameworks:
+    - id: HIPAA
+      controls:
+        - '164.308(a)(1)'          # security management
+        - '164.308(a)(3)'          # workforce security
+        - '164.308(a)(4)'          # access management
+        - '164.310(a)(1)'          # facility access
+        - '164.312(a)(1)'          # access control
+        - '164.312(b)'             # audit controls
+        - '164.312(c)(1)'          # integrity
+    - id: NIST.AI.100-1
+      controls: [GOVERN-1.1, GOVERN-1.2, MAP-1.1, MEASURE-2.1, MANAGE-2.3]

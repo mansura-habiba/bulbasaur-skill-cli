@@ -71,6 +71,12 @@ class SkillOverlay:
     output_contract: OutputContract | None = None
     model_compatibility: list[dict[str, Any]] = field(default_factory=list)
 
+    # Policies the skill declares it conforms to. Each entry is either a
+    # catalog short-name (`hipaa-baseline`) or a path to a YAML file
+    # (`./policies/internal.yaml`). Required at org+ strictness when the
+    # framework's hardcoded rung defaults are not sufficient.
+    policies: list[str] = field(default_factory=list)
+
     # Raw dict of any unrecognized keys — forwarded through for forward-compat.
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -132,7 +138,7 @@ def load_skill_yaml(skill_dir: Path) -> SkillOverlay | None:
 def _parse_overlay(raw: dict[str, Any], *, path: Path) -> SkillOverlay:
     """Convert a raw YAML dict into a validated SkillOverlay."""
     known = {"name", "strictness", "version", "ownership", "marketplace",
-             "output_contract", "model_compatibility"}
+             "output_contract", "model_compatibility", "policies"}
     extra = {k: v for k, v in raw.items() if k not in known}
 
     name = str(raw.get("name") or "")
@@ -175,6 +181,11 @@ def _parse_overlay(raw: dict[str, Any], *, path: Path) -> SkillOverlay:
     if not isinstance(model_compat, list):
         model_compat = []
 
+    raw_policies = raw.get("policies", [])
+    if not isinstance(raw_policies, list):
+        raw_policies = []
+    policies = [str(p) for p in raw_policies if p is not None and str(p).strip()]
+
     return SkillOverlay(
         name=name,
         strictness=strictness,
@@ -183,6 +194,7 @@ def _parse_overlay(raw: dict[str, Any], *, path: Path) -> SkillOverlay:
         marketplace=str(marketplace) if marketplace else None,
         output_contract=output_contract,
         model_compatibility=model_compat,
+        policies=policies,
         extra=extra,
     )
 
@@ -219,6 +231,8 @@ def write_skill_yaml(path: Path, overlay: SkillOverlay) -> None:
             data["output_contract"] = oc
     if overlay.model_compatibility:
         data["model_compatibility"] = overlay.model_compatibility
+    if overlay.policies:
+        data["policies"] = list(overlay.policies)
     data.update(overlay.extra)
 
     yaml = YAML()

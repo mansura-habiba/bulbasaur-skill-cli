@@ -27,6 +27,7 @@ from skillctl.commands import (
     audit_cmd,
     eval_cmd,
     marketplace_cmd,
+    policy_cmd,
     strictness_cmd,
 )
 from skillctl.commands import compile as compile_cmd
@@ -54,6 +55,8 @@ _COMMANDS = [
     validate_cmd,
     run_cmd,
     eval_cmd,
+    # Governance
+    policy_cmd,
     # Distribution
     marketplace_cmd,
     publish_cmd,

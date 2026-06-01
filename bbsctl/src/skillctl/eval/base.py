@@ -145,7 +145,12 @@ class SuiteResult:
 
 @dataclass
 class EvalReport:
-    """Top-level report from one EvalRunner.run()."""
+    """Top-level report from one EvalRunner.run().
+
+    Reproducibility metadata (model versions, hashes, cache state) is
+    populated by the runner so the report is self-describing — a future run
+    with the same inputs returns the same report.
+    """
 
     skill_dir: Path
     strictness: Strictness
@@ -153,6 +158,16 @@ class EvalReport:
     runtime_name: str
     judge_name: str
     suites: list[SuiteResult] = field(default_factory=list)
+
+    # Reproducibility / pinning metadata. Populated by EvalRunner.
+    runtime_model: str = ""
+    judge_backend: str = ""
+    judge_model: str = ""
+    skill_hash: str = ""
+    corpus_hash: str = ""
+    cache_key: str = ""
+    cached: bool = False
+    threshold: float = 1.0
 
     @property
     def score(self) -> float:
@@ -162,7 +177,12 @@ class EvalReport:
 
     @property
     def passed(self) -> bool:
-        return all(s.passed for s in self.suites)
+        if not self.suites:
+            return True
+        # Threshold IS the gate. With the default threshold=1.0 this is
+        # equivalent to "every case passes"; lower thresholds let runs
+        # pass with partial assertion coverage.
+        return self.score >= self.threshold
 
     @property
     def total_cases(self) -> int:

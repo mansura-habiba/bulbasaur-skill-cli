@@ -31,6 +31,13 @@ from skillctl.agentskills.rules import AgentSkillsValidationError
 from skillctl.eval import EvalMode, EvalReport, EvalRunner
 from skillctl.eval.factory import list_judges
 from skillctl.eval.loader import EvalLoadError
+from skillctl.eval.reproducibility import (
+    EvalConfigError,
+    load_eval_config,
+    merge_config,
+    write_snapshot,
+)
+from skillctl.llm import list_backends
 from skillctl.messaging import FrameworkError, emit, info
 from skillctl.project_config import load_project_config
 from skillctl.run.factory import list_runtimes
@@ -79,17 +86,101 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     )
     p.add_argument(
         "--runtime",
-        default="mock",
+        default=None,
         choices=list_runtimes(),
-        help="AgentRuntime adapter (default: mock — no API key required).",
+        help="AgentRuntime adapter (override config; default: mock — no API key).",
+    )
+    p.add_argument(
+        "--runtime-model",
+        default=None,
+        metavar="NAME",
+        help="Pin the runtime's model (e.g. `claude-sonnet-4-6`). Recorded in the report.",
     )
     p.add_argument(
         "--judge",
-        default="heuristic",
+        default=None,
         choices=list_judges(),
+        help="Judge implementation (override config; default: heuristic).",
+    )
+    p.add_argument(
+        "--judge-backend",
+        default=None,
+        choices=list_backends(),
         help=(
-            "Judge implementation (default: heuristic — deterministic, no API key). "
-            "Phase 4 adds `llm` once the Claude Agent SDK adapter ships."
+            "LLM backend for the judge when --judge=llm "
+            "(ollama / anthropic / openai)."
+        ),
+    )
+    p.add_argument(
+        "--judge-model",
+        default=None,
+        metavar="NAME",
+        help="Pin the judge's model (e.g. `claude-haiku-4-5-20251001`).",
+    )
+    p.add_argument(
+        "--judge-threshold",
+        default=None,
+        type=float,
+        metavar="FLOAT",
+        help="HeuristicJudge keyword-overlap threshold (default: 0.5).",
+    )
+    p.add_argument(
+        "--judge-max-tokens",
+        default=None,
+        type=int,
+        metavar="N",
+        help="LLMJudge per-assertion max_tokens (default: 256).",
+    )
+    p.add_argument(
+        "--threshold",
+        default=None,
+        type=float,
+        metavar="FLOAT",
+        help="Pass threshold for the suite score (default: 1.0 — every case must pass).",
+    )
+    p.add_argument(
+        "--runtime-max-tokens",
+        default=None,
+        type=int,
+        metavar="N",
+        help="Runtime per-activation max_tokens (default: 4096).",
+    )
+    p.add_argument(
+        "--runtime-temperature",
+        default=None,
+        type=float,
+        metavar="FLOAT",
+        help="Runtime temperature (default: 0.0).",
+    )
+    p.add_argument(
+        "--fuzz-n-variants",
+        default=None,
+        type=int,
+        metavar="N",
+        help="SemanticFuzzer rephrasings per case (default: 4).",
+    )
+    p.add_argument(
+        "--cache",
+        action="store_true",
+        default=False,
+        help=(
+            "Read/write the eval cache at ~/.cache/bbsctl/eval/. "
+            "Cache key includes skill_hash, corpus_hash, runtime, models, judge, mode."
+        ),
+    )
+    p.add_argument(
+        "--refresh-cache",
+        action="store_true",
+        default=False,
+        help="Force a fresh run and overwrite the cached report.",
+    )
+    p.add_argument(
+        "--snapshot",
+        default=None,
+        metavar="SUITE",
+        help=(
+            "Write the eval report to evals/snapshots/<suite>.<model>.json "
+            "as a regression baseline."
         ),
     )
     p.add_argument(
@@ -146,14 +237,37 @@ def run(args: argparse.Namespace) -> int:
     strictness = _resolve_strictness(skill_dir, args.strictness)
     mode = EvalMode(args.mode)
 
+    # Layer: eval.config.yaml → CLI overrides.
+    try:
+        base_config = load_eval_config(skill_dir)
+    except EvalConfigError as exc:
+        emit(exc.framework_error)
+        return 2
+
+    config = merge_config(
+        base_config,
+        runtime=args.runtime,
+        runtime_model=args.runtime_model,
+        runtime_max_tokens=getattr(args, "runtime_max_tokens", None),
+        runtime_temperature=getattr(args, "runtime_temperature", None),
+        judge=args.judge,
+        judge_backend=args.judge_backend,
+        judge_model=args.judge_model,
+        judge_threshold=getattr(args, "judge_threshold", None),
+        judge_max_tokens=getattr(args, "judge_max_tokens", None),
+        threshold=args.threshold,
+        fuzz_n_variants=getattr(args, "fuzz_n_variants", None),
+    )
+
     runner = EvalRunner(
         skill_dir,
         strictness,
         mode=mode,
-        runtime_name=args.runtime,
-        judge_name=args.judge,
+        config=config,
         suite_filter=args.suite,
         case_filter=args.case,
+        use_cache=args.cache or args.refresh_cache,
+        refresh_cache=args.refresh_cache,
     )
 
     try:
@@ -175,6 +289,32 @@ def run(args: argparse.Namespace) -> int:
     if not report.suites:
         info("eval: no suites matched the filters. Nothing to do.")
         return 0
+
+    # Optional snapshot write.
+    if args.snapshot:
+        suite = next(
+            (s for s in report.suites if s.suite_name == args.snapshot),
+            None,
+        )
+        if suite is None:
+            emit(
+                FrameworkError(
+                    summary=(
+                        f"--snapshot: suite `{args.snapshot}` not found in the run"
+                    ),
+                    fix=(
+                        f"Available suites: "
+                        f"{', '.join(s.suite_name for s in report.suites)}"
+                    ),
+                )
+            )
+            return 2
+        snap_path = write_snapshot(
+            report,
+            suite_name=args.snapshot,
+            runtime_model=config.runtime_model,
+        )
+        info(f"snapshot written: {snap_path}")
 
     if args.output != "silent":
         _print_report(report, fmt=args.output)
@@ -205,15 +345,22 @@ def _print_report(report: EvalReport, *, fmt: str) -> None:
 
     # Text output.
     status = "PASSED" if report.passed else "FAILED"
+    cached_tag = "  (cached)" if report.cached else ""
     info(
-        f"eval [{report.mode.value}] @ {report.strictness.value}: {status}  "
-        f"(runtime={report.runtime_name}, judge={report.judge_name})"
+        f"eval [{report.mode.value}] @ {report.strictness.value}: {status}{cached_tag}  "
+        f"(runtime={report.runtime_name}"
+        f"{':' + report.runtime_model if report.runtime_model else ''}, "
+        f"judge={report.judge_name}"
+        f"{':' + report.judge_model if report.judge_model else ''})"
     )
     info(f"  skill: {report.skill_dir}")
     info(
-        f"  score: {report.score:.2f}  "
+        f"  score: {report.score:.2f}  threshold: {report.threshold:.2f}  "
         f"({report.passed_cases}/{report.total_cases} case(s) passing)"
     )
+    if report.cache_key:
+        info(f"  cache_key: {report.cache_key[:16]}...  (skill={report.skill_hash[:8]}, "
+             f"corpus={report.corpus_hash[:8]})")
     info("")
 
     for suite in report.suites:
@@ -244,11 +391,19 @@ def _report_to_dict(report: EvalReport) -> dict:
         "mode": report.mode.value,
         "strictness": report.strictness.value,
         "runtime": report.runtime_name,
+        "runtime_model": report.runtime_model,
         "judge": report.judge_name,
+        "judge_backend": report.judge_backend,
+        "judge_model": report.judge_model,
         "skill_dir": str(report.skill_dir),
         "score": report.score,
+        "threshold": report.threshold,
         "passed_cases": report.passed_cases,
         "total_cases": report.total_cases,
+        "skill_hash": report.skill_hash,
+        "corpus_hash": report.corpus_hash,
+        "cache_key": report.cache_key,
+        "cached": report.cached,
         "suites": [
             {
                 "name": s.suite_name,

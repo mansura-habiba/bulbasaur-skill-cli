@@ -1,0 +1,89 @@
+schema_version: bulbasaur/v1
+policy:
+  name: soc2-type2-baseline
+  version: 1.0.0
+  effective_date: 2026-01-01
+  expiry_date: 2027-12-31
+  authority: compliance-team@example.com
+  description: >
+    SOC 2 Type II baseline policy. Maps to the trust services criteria
+    (security, availability, processing integrity, confidentiality, privacy).
+    Pairs with audit-evidence collection so the policy file itself becomes
+    part of the SOC 2 evidence package.
+
+  applies_to_strictness: [org, regulated]
+
+  required_artifacts:
+    files:
+      - skill.yaml
+      - permissions.yaml
+      - ownership.yaml
+      - evals/behavior.json
+    directories:
+      - evals/snapshots/
+      - approvals/
+
+  ownership:
+    required_fields: [team, contact, runbook, on_call, business_owner, cost_owner]
+    last_reviewed_max_age_days: 365
+    require_security_reviewer: true
+
+  eval:
+    min_score: 1.0
+    min_threshold: 1.0
+    required_suites: [behavior]
+    snapshots_required: true
+    judge_must_be_llm: true
+    model_upgrade:
+      re_eval_required: true
+      block_on_regression: true
+      regression_threshold: 0.0
+
+  permissions:
+    require_default_deny: [commands, network, mcp_tools]
+    forbidden_commands:
+      - pattern: '\bdelete_all_\w+'
+        reason: "data destruction without approval (CC6.7)"
+      - pattern: '\bkubectl\s+exec\b.*(-it|--stdin|--tty)'
+        reason: "uncontrolled execution (CC6.1)"
+    require_namespace_isolation: true
+    redact_required_patterns:
+      - '.*_TOKEN'
+      - '.*_SECRET'
+      - '.*_API_KEY'
+
+  audit:
+    retention_days: 365
+    tamper_evident: true
+    fail_mode: fail-degraded
+    required_fields:
+      - model_version
+      - prompt_hash
+      - hook_outcome
+      - latency_ms
+      - cost_usd
+      - user_id
+
+  approval:
+    required_approvers:
+      - role: security-reviewer
+        count: 1
+      - role: business-owner
+        count: 1
+    sign_off_yaml_required: true
+
+  cost:
+    max_tokens_per_run: 100000
+    max_cost_usd_per_month: 2000.0
+
+  compliance_frameworks:
+    - id: SOC2
+      controls:
+        - CC6.1                  # logical access controls
+        - CC6.6                  # logical access protections
+        - CC6.7                  # data transmission/disposal
+        - CC7.2                  # monitoring
+        - CC7.3                  # incident management
+        - CC8.1                  # change management
+    - id: NIST.AI.100-1
+      controls: [GOVERN-1.1, MAP-1.1, MEASURE-2.1]

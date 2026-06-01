@@ -220,6 +220,13 @@ class GitMarketplace:
             json.dumps(plugin_manifest, indent=2), encoding="utf-8"
         )
 
+        # Write bundle.lock + bundle.sig (signature is a placeholder until
+        # Sigstore lands in Phase 3).
+        from .bundle import write_bundle_lock, write_bundle_signature_placeholder
+
+        write_bundle_lock(plugin_dir, name=plugin_name, version=version)
+        write_bundle_signature_placeholder(plugin_dir)
+
         # Update marketplace.json.
         market_manifest = self.load_manifest()
         entry = MarketplaceEntry(
@@ -237,6 +244,19 @@ class GitMarketplace:
         self.save_manifest(market_manifest)
 
         return plugin_dir
+
+    def verify_plugin(self, plugin_name: str) -> tuple[bool, list[str]]:
+        """Verify a published plugin's bundle.lock against on-disk contents.
+
+        Returns (ok, errors). Called by `bbsctl install --verify` and by
+        downstream marketplace consumers (CI, registry gateways).
+        """
+        from .bundle import verify_bundle
+
+        plugin_dir = self.get_plugin_dir(plugin_name)
+        if not plugin_dir.exists():
+            return False, [f"plugin {plugin_name!r} not found in marketplace"]
+        return verify_bundle(plugin_dir)
 
     def resolve_plugin(self, plugin_name: str) -> Path | None:
         """Return the plugin directory for `plugin_name`, or None if not found."""
@@ -259,17 +279,19 @@ def _copy_skill_files(*, src: Path, dst: Path) -> None:
     skill_md = src / "SKILL.md"
     if skill_md.exists():
         shutil.copy2(skill_md, dst / "SKILL.md")
-    for subdir in ("scripts", "references", "assets"):
+    # Recursive copies for content directories.
+    for subdir in ("scripts", "references", "assets", "evals", "dist"):
         src_sub = src / subdir
         if src_sub.is_dir():
             dst_sub = dst / subdir
             if dst_sub.exists():
                 shutil.rmtree(dst_sub)
             shutil.copytree(src_sub, dst_sub)
-    # Include skill.yaml for team+ marketplace entries.
-    skill_yaml = src / "skill.yaml"
-    if skill_yaml.exists():
-        shutil.copy2(skill_yaml, dst / "skill.yaml")
+    # Single-file overlays carried with the bundle.
+    for fname in ("skill.yaml", "permissions.yaml", "ownership.yaml"):
+        src_file = src / fname
+        if src_file.exists():
+            shutil.copy2(src_file, dst / fname)
 
 
 __all__ = [

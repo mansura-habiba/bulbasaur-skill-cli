@@ -30,15 +30,41 @@ EvaluatorFactory = Callable[[SkillFrontmatter, AgentRuntime, Judge], Evaluator]
 JudgeFactory = Callable[[], Judge]
 
 
+def _build_injection_evaluator(skill, runtime, judge):
+    from .injection import InjectionEvaluator
+
+    return InjectionEvaluator(skill=skill, runtime=runtime, judge=judge)
+
+
+def _build_fuzz_evaluator(skill, runtime, judge):
+    from .fuzzer import SemanticFuzzer
+
+    return SemanticFuzzer(skill=skill, runtime=runtime, judge=judge)
+
+
 _EVALUATOR_REGISTRY: dict[str, EvaluatorFactory] = {
     "behavior": lambda skill, runtime, judge: BehaviorEvaluator(
         skill=skill, runtime=runtime, judge=judge
     ),
+    "injection": _build_injection_evaluator,
+    "fuzz": _build_fuzz_evaluator,
 }
+
+
+def _build_llm_judge() -> Judge:
+    """Lazy LLMJudge construction — imports the llm module only when needed.
+
+    Keeps the base install dependency-light by deferring backend resolution
+    until the user actually picks `--judge llm`.
+    """
+    from .llm_judge import LLMJudge
+
+    return LLMJudge()
 
 
 _JUDGE_REGISTRY: dict[str, JudgeFactory] = {
     "heuristic": HeuristicJudge,
+    "llm": _build_llm_judge,
 }
 
 
