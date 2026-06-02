@@ -15,14 +15,20 @@ on:
 permissions:
   contents: read
 
+# Force JS actions to run on Node.js 24 (the current runtime since June 16, 2026).
+# Belt-and-suspenders alongside the v5 / v6 action bumps below: silences the
+# Node-20 deprecation warning even if any action's manifest still declares Node 20.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   release-build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
@@ -40,7 +46,7 @@ jobs:
         run: python -m build
 
       - name: Upload distributions
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: release-dists
           path: bbsctl/dist/
@@ -61,7 +67,7 @@ jobs:
 
     steps:
       - name: Retrieve release distributions
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: release-dists
           path: dist/
