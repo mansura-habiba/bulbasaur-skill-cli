@@ -98,8 +98,8 @@ def _build_parser() -> argparse.ArgumentParser:
             "evaluate agent skills like production code."
         ),
         epilog=(
-            "More: <repo-url>/tree/main/docs\n"
-            "Quickstart: <repo-url>/tree/main/quickstart"
+            "More: https://github.com/mansura-habiba/bulbasaur-skill-cli/tree/main/docs\n"
+            "Quickstart: https://github.com/mansura-habiba/bulbasaur-skill-cli/tree/main/quickstart"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -187,7 +187,7 @@ def _unexpected_exception_to_framework_error(
             "Re-run with `BBSCTL_DEBUG=1` to see the full traceback, then file an "
             "issue with the command you ran, the SKILL.md (if relevant), and the traceback."
         ),
-        docs="<repo-url>/issues",
+        docs="https://github.com/mansura-habiba/bulbasaur-skill-cli/issues",
     )
 
 

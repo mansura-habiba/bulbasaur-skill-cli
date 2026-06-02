@@ -4,12 +4,25 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bbsctl"
-version = "0.1.0"
+version = "0.1.1"
 description = "Bulbasaur skill framework CLI — design, compile, validate, deploy, and evaluate agent skills like production code."
 readme = "../README.md"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Bulbasaur framework" }]
 requires-python = ">=3.11,<3.14"
+keywords = ["agent", "skills", "llm", "agentskills", "claude", "policy", "compliance"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Software Development :: Quality Assurance",
+]
 
 # Base install — the five-minute promise. Stdlib + ruamel.yaml only.
 # Covers: bbsctl new, bbsctl compile, bbsctl run at `local` strictness.
@@ -55,10 +68,11 @@ dev = [
 bbsctl = "skillctl.cli:main"
 
 [project.urls]
-Homepage = "<repo-url>"
-Documentation = "<repo-url>/tree/main/docs"
-Repository = "<repo-url>"
-Issues = "<repo-url>/issues"
+Homepage = "https://github.com/mansura-habiba/bulbasaur-skill-cli"
+Documentation = "https://github.com/mansura-habiba/bulbasaur-skill-cli/tree/main/docs"
+Repository = "https://github.com/mansura-habiba/bulbasaur-skill-cli"
+Issues = "https://github.com/mansura-habiba/bulbasaur-skill-cli/issues"
+Changelog = "https://github.com/mansura-habiba/bulbasaur-skill-cli/releases"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/skillctl"]
