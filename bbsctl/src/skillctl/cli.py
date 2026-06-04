@@ -25,11 +25,15 @@ import traceback
 from skillctl import __version__
 from skillctl.commands import (
     audit_cmd,
+    classify_cmd,
     eval_cmd,
+    gateway_cmd,
     marketplace_cmd,
     policy_cmd,
+    risk_cmd,
     strictness_cmd,
 )
+from skillctl.dotenv import load_dotenv
 from skillctl.commands import compile as compile_cmd
 from skillctl.commands import (
     fetch as fetch_cmd,
@@ -57,6 +61,9 @@ _COMMANDS = [
     eval_cmd,
     # Governance
     policy_cmd,
+    risk_cmd,
+    classify_cmd,
+    gateway_cmd,
     # Distribution
     marketplace_cmd,
     publish_cmd,
@@ -114,6 +121,13 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     """Entry point — wired via `[project.scripts] bbsctl = "skillctl.cli:main"`."""
+    # Load a project-local `.env` (if present) BEFORE any subcommand parses
+    # configuration. Shell-set env vars take precedence over `.env`. The
+    # loader is forgiving — a missing or malformed file does not crash
+    # startup. Disable by setting BBSCTL_SKIP_DOTENV=1.
+    if not os.environ.get("BBSCTL_SKIP_DOTENV"):
+        load_dotenv()
+
     parser = _build_parser()
     args = parser.parse_args(argv)
 

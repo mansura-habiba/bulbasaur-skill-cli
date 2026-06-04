@@ -16,6 +16,7 @@ from dataclasses import dataclass
 
 from skillctl.strictness import Strictness
 
+from .injection_scan import SkillBodyInjectionScanStep
 from .pipeline import CompilePipeline, CompileStep
 from .steps import (
     EmitReportStep,
@@ -41,6 +42,12 @@ class StepRegistration:
 _REGISTRY: list[StepRegistration] = [
     StepRegistration(factory=ParseFrontmatterStep, applies_at=Strictness.LOCAL),
     StepRegistration(factory=ValidateAgentSkillsSpecStep, applies_at=Strictness.LOCAL),
+    # SkillBodyInjectionScanStep: runs at every strictness but severity
+    # escalates from warning (local/team) to error (org+) — handled inside
+    # the step itself.
+    StepRegistration(
+        factory=SkillBodyInjectionScanStep, applies_at=Strictness.LOCAL
+    ),
     # EmitReportStep is intentionally last so it sees every preceding step's results.
     StepRegistration(factory=EmitReportStep, applies_at=Strictness.LOCAL),
 ]

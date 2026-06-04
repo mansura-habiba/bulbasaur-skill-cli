@@ -24,6 +24,7 @@ from .output_contract import OutputContractValidator
 from .ownership_validator import OwnershipValidator
 from .permissions_validator import PermissionsValidator
 from .policy_validator import PolicyValidator
+from .risk_matrix_validator import RiskMatrixValidator
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,7 @@ _REGISTRY: list[_ValidatorRegistration] = [
     _ValidatorRegistration(factory=PermissionsValidator, min_mode=ValidateMode.FAST),
     _ValidatorRegistration(factory=OwnershipValidator, min_mode=ValidateMode.FAST),
     _ValidatorRegistration(factory=PolicyValidator, min_mode=ValidateMode.FAST),
+    _ValidatorRegistration(factory=RiskMatrixValidator, min_mode=ValidateMode.FAST),
 ]
 
 

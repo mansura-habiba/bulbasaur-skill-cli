@@ -3,7 +3,13 @@
 `skill.yaml` is the Phase 2+ enterprise overlay that sits beside `SKILL.md` in
 a skill directory. At `local` strictness it is optional; at `team` it is
 required. It carries the fields the public agentskills.io spec does not define:
-strictness, ownership ref, marketplace config, output contract, model compat.
+strictness, ownership ref, marketplace config, output contract, model compat,
+declared policies, and **risk profile** (level + data classification + side
+effects + approval requirement).
+
+The risk profile is the content axis that pairs with the strictness ladder's
+consent axis. Strictness declares how much friction the author has opted into;
+risk declares what the skill is allowed to *do* once it runs.
 
 See: framework-build-plan.md §1, ADR 0003, ADR 0007.
 """
@@ -11,6 +17,8 @@ See: framework-build-plan.md §1, ADR 0003, ADR 0007.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date, datetime
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +58,159 @@ class OwnershipRef:
     runbook: str | None = None
 
 
+class RiskLevel(str, Enum):
+    """How much damage a misuse of this skill could cause.
+
+    Orthogonal to the strictness ladder:
+      strictness = consent (how much friction the author opted into)
+      risk_level = content (what the skill is allowed to *do* once it runs)
+
+    A markdown-formatting skill at `org` strictness is `low` risk.
+    A deployment-pipeline skill at `org` strictness is `critical` risk.
+    """
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+    @classmethod
+    def from_string(cls, value: str | None) -> RiskLevel | None:
+        if not value:
+            return None
+        try:
+            return cls(str(value).lower())
+        except ValueError:
+            return None
+
+    def at_least(self, other: RiskLevel) -> bool:
+        order = [self.LOW, self.MEDIUM, self.HIGH, self.CRITICAL]
+        return order.index(self) >= order.index(other)
+
+
+class DataClassification(str, Enum):
+    """The most sensitive class of data this skill may touch."""
+
+    PUBLIC = "public"
+    INTERNAL = "internal"
+    CONFIDENTIAL = "confidential"
+    REGULATED = "regulated"
+    PII = "pii"
+    PHI = "phi"
+
+    @classmethod
+    def from_string(cls, value: str | None) -> DataClassification | None:
+        if not value:
+            return None
+        try:
+            return cls(str(value).lower())
+        except ValueError:
+            return None
+
+
+class SideEffects(str, Enum):
+    """The blast radius of the skill's tool calls.
+
+    none         — no tool calls at all (pure reasoning, summarization)
+    read_only    — reads only; no writes, no external calls
+    reversible   — writes that can be undone (a draft email, a kubectl patch
+                   that can be rolled back, a database UPDATE inside a tx)
+    external     — talks to external systems (API calls, emails sent)
+    destructive  — irreversible writes (DELETE, drop table, production deploy)
+    """
+
+    NONE = "none"
+    READ_ONLY = "read_only"
+    REVERSIBLE = "reversible"
+    EXTERNAL = "external"
+    DESTRUCTIVE = "destructive"
+
+    @classmethod
+    def from_string(cls, value: str | None) -> SideEffects | None:
+        if not value:
+            return None
+        try:
+            return cls(str(value).lower())
+        except ValueError:
+            return None
+
+
+@dataclass(frozen=True)
+class Risk:
+    """Risk profile of a skill, declared in skill.yaml under `risk:`.
+
+    All fields are optional but the policy layer will require subsets at
+    higher strictness rungs. A `regulated` skill must declare every field.
+    """
+
+    level: RiskLevel | None = None
+    data_classification: DataClassification | None = None
+    side_effects: SideEffects | None = None
+    requires_human_approval: bool = False
+
+    @property
+    def declared(self) -> bool:
+        """True when at least one risk field is set (i.e. the author engaged)."""
+        return (
+            self.level is not None
+            or self.data_classification is not None
+            or self.side_effects is not None
+            or self.requires_human_approval
+        )
+
+    @property
+    def is_complete(self) -> bool:
+        """True when every risk field is set — required at regulated strictness."""
+        return (
+            self.level is not None
+            and self.data_classification is not None
+            and self.side_effects is not None
+        )
+
+
+@dataclass(frozen=True)
+class Provenance:
+    """Skill provenance — where this skill came from and who approved it.
+
+    Declared in skill.yaml under `provenance:`. Auto-populated by
+    `bbsctl publish` from the local git state when fields are empty (the
+    helper reads `git rev-parse HEAD`, `git remote get-url origin`, etc.).
+
+    Required at `org+` strictness. The publish gate refuses to upload a
+    bundle whose claimed `commit_sha` doesn't match the git state of the
+    source tree it was built from — closes the "smuggled artifact" attack.
+    """
+
+    source_repo: str = ""          # e.g. "github.com/acme/skill-pdf-processing"
+    commit_sha: str = ""           # 40-char hex; auto-populated from `git rev-parse HEAD`
+    source_repo_branch: str = ""   # e.g. "main"; auto-populated from `git symbolic-ref`
+    approved_by: str = ""          # e.g. "security-review-board" or an email
+    approved_at: date | None = None  # ISO date of the approval
+    build_tool: str = ""           # e.g. "bbsctl 0.1.1" — set automatically at publish time
+
+    @property
+    def declared(self) -> bool:
+        """True when at least one provenance field is set."""
+        return bool(
+            self.source_repo
+            or self.commit_sha
+            or self.source_repo_branch
+            or self.approved_by
+            or self.approved_at
+            or self.build_tool
+        )
+
+    @property
+    def has_minimum(self) -> bool:
+        """Org-tier minimum: source_repo + commit_sha must be set."""
+        return bool(self.source_repo) and bool(self.commit_sha)
+
+    @property
+    def has_approval(self) -> bool:
+        """Regulated-tier minimum: approval fields must be populated."""
+        return bool(self.approved_by) and self.approved_at is not None
+
+
 @dataclass
 class SkillOverlay:
     """Parsed content of a skill's skill.yaml enterprise overlay.
@@ -76,6 +237,15 @@ class SkillOverlay:
     # (`./policies/internal.yaml`). Required at org+ strictness when the
     # framework's hardcoded rung defaults are not sufficient.
     policies: list[str] = field(default_factory=list)
+
+    # Risk profile — what the skill is allowed to *do* once it runs.
+    # Recommended at `team`, required at `org`, fully populated at `regulated`.
+    risk: Risk = field(default_factory=Risk)
+
+    # Provenance — where this skill came from and who approved it. Required
+    # at `org+`. Auto-populated by `bbsctl publish` from the git state when
+    # left empty in the source tree.
+    provenance: Provenance = field(default_factory=Provenance)
 
     # Raw dict of any unrecognized keys — forwarded through for forward-compat.
     extra: dict[str, Any] = field(default_factory=dict)
@@ -138,7 +308,8 @@ def load_skill_yaml(skill_dir: Path) -> SkillOverlay | None:
 def _parse_overlay(raw: dict[str, Any], *, path: Path) -> SkillOverlay:
     """Convert a raw YAML dict into a validated SkillOverlay."""
     known = {"name", "strictness", "version", "ownership", "marketplace",
-             "output_contract", "model_compatibility", "policies"}
+             "output_contract", "model_compatibility", "policies", "risk",
+             "provenance"}
     extra = {k: v for k, v in raw.items() if k not in known}
 
     name = str(raw.get("name") or "")
@@ -186,6 +357,9 @@ def _parse_overlay(raw: dict[str, Any], *, path: Path) -> SkillOverlay:
         raw_policies = []
     policies = [str(p) for p in raw_policies if p is not None and str(p).strip()]
 
+    risk = _parse_risk(raw.get("risk"))
+    provenance = _parse_provenance(raw.get("provenance"))
+
     return SkillOverlay(
         name=name,
         strictness=strictness,
@@ -195,8 +369,54 @@ def _parse_overlay(raw: dict[str, Any], *, path: Path) -> SkillOverlay:
         output_contract=output_contract,
         model_compatibility=model_compat,
         policies=policies,
+        risk=risk,
+        provenance=provenance,
         extra=extra,
     )
+
+
+def _parse_risk(raw: Any) -> Risk:
+    """Parse the `risk:` block. Unknown enum values fall through as None."""
+    if not isinstance(raw, dict):
+        return Risk()
+    return Risk(
+        level=RiskLevel.from_string(raw.get("level")),
+        data_classification=DataClassification.from_string(
+            raw.get("data_classification")
+        ),
+        side_effects=SideEffects.from_string(raw.get("side_effects")),
+        requires_human_approval=bool(raw.get("requires_human_approval", False)),
+    )
+
+
+def _parse_provenance(raw: Any) -> Provenance:
+    """Parse the `provenance:` block. Tolerant on bad dates (drops to None)."""
+    if not isinstance(raw, dict):
+        return Provenance()
+    return Provenance(
+        source_repo=str(raw.get("source_repo") or ""),
+        commit_sha=str(raw.get("commit_sha") or ""),
+        source_repo_branch=str(raw.get("source_repo_branch") or ""),
+        approved_by=str(raw.get("approved_by") or ""),
+        approved_at=_parse_provenance_date(raw.get("approved_at")),
+        build_tool=str(raw.get("build_tool") or ""),
+    )
+
+
+def _parse_provenance_date(value: Any) -> date | None:
+    """ISO date or None — silently drops bad values (publish gate enforces)."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, date):
+        return value
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            return None
+    return None
 
 
 def write_skill_yaml(path: Path, overlay: SkillOverlay) -> None:
@@ -233,6 +453,32 @@ def write_skill_yaml(path: Path, overlay: SkillOverlay) -> None:
         data["model_compatibility"] = overlay.model_compatibility
     if overlay.policies:
         data["policies"] = list(overlay.policies)
+    if overlay.risk.declared:
+        risk_block: dict[str, Any] = {}
+        if overlay.risk.level is not None:
+            risk_block["level"] = overlay.risk.level.value
+        if overlay.risk.data_classification is not None:
+            risk_block["data_classification"] = overlay.risk.data_classification.value
+        if overlay.risk.side_effects is not None:
+            risk_block["side_effects"] = overlay.risk.side_effects.value
+        if overlay.risk.requires_human_approval:
+            risk_block["requires_human_approval"] = True
+        data["risk"] = risk_block
+    if overlay.provenance.declared:
+        prov_block: dict[str, Any] = {}
+        if overlay.provenance.source_repo:
+            prov_block["source_repo"] = overlay.provenance.source_repo
+        if overlay.provenance.commit_sha:
+            prov_block["commit_sha"] = overlay.provenance.commit_sha
+        if overlay.provenance.source_repo_branch:
+            prov_block["source_repo_branch"] = overlay.provenance.source_repo_branch
+        if overlay.provenance.approved_by:
+            prov_block["approved_by"] = overlay.provenance.approved_by
+        if overlay.provenance.approved_at is not None:
+            prov_block["approved_at"] = overlay.provenance.approved_at.isoformat()
+        if overlay.provenance.build_tool:
+            prov_block["build_tool"] = overlay.provenance.build_tool
+        data["provenance"] = prov_block
     data.update(overlay.extra)
 
     yaml = YAML()
@@ -245,8 +491,13 @@ def write_skill_yaml(path: Path, overlay: SkillOverlay) -> None:
 
 
 __all__ = [
+    "DataClassification",
     "OutputContract",
     "OwnershipRef",
+    "Provenance",
+    "Risk",
+    "RiskLevel",
+    "SideEffects",
     "SkillOverlay",
     "SkillYamlError",
     "load_skill_yaml",

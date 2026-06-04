@@ -1,8 +1,21 @@
 name: Release Python Package
 
 on:
+  # Automatic: every published GitHub release.
   release:
     types: [published]
+
+  # Manual: trigger from the Actions tab or `gh workflow run`.
+  # Defaults to a build-and-test dry run so an accidental click does not
+  # publish — flip the checkbox (or pass `--field publish_to_pypi=true`) to
+  # actually push to PyPI.
+  workflow_dispatch:
+    inputs:
+      publish_to_pypi:
+        description: "Publish to PyPI after a successful build (off = dry run: build + test only)"
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
@@ -47,6 +60,13 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - release-build
+    # Skip the publish job entirely on a dry-run manual dispatch.
+    # Release-triggered runs always publish; workflow_dispatch publishes only
+    # when the `publish_to_pypi` input is true.
+    if: >
+      github.event_name == 'release' ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.event.inputs.publish_to_pypi == 'true')
     permissions:
       # IMPORTANT: this permission is mandatory for trusted publishing
       id-token: write

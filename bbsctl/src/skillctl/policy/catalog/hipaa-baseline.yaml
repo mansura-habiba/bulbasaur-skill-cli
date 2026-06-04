@@ -100,3 +100,25 @@ policy:
         - '164.312(c)(1)'          # integrity
     - id: NIST.AI.100-1
       controls: [GOVERN-1.1, GOVERN-1.2, MAP-1.1, MEASURE-2.1, MANAGE-2.3]
+
+  # Every HIPAA-covered skill must declare a complete risk profile.
+  require_risk_profile: true
+  require_complete_risk_profile: true
+
+  # Tiered controls per declared risk level. Cumulative — a `high` skill
+  # also satisfies the `medium` and `low` rows below.
+  risk_controls:
+    - level: medium
+      require_injection_corpus: true
+    - level: high
+      require_human_approval: true
+      require_security_reviewer: true
+      require_injection_corpus: true
+      max_side_effects: external
+    - level: critical
+      require_sandbox: true
+      require_signature: true
+      require_human_approval: true
+      require_security_reviewer: true
+      require_injection_corpus: true
+      forbidden_data_classifications: [public]   # critical skills cannot claim 'public' data

@@ -26,9 +26,23 @@ def _build_claude_agent_sdk(
     )
 
 
+def _build_ollama_runtime(
+    model: str | None = None,
+    max_tokens: int = 4096,
+    temperature: float = 0.0,
+):
+    """Lazy import — only loads OllamaRuntime when actually requested."""
+    from .ollama import OllamaRuntime
+
+    return OllamaRuntime(
+        model=model, max_tokens=max_tokens, temperature=temperature
+    )
+
+
 _REGISTRY: dict[str, Callable[..., AgentRuntime]] = {
     "mock": MockAgent,
     "claude-agent-sdk": _build_claude_agent_sdk,
+    "ollama": _build_ollama_runtime,
 }
 
 

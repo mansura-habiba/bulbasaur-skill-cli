@@ -99,8 +99,230 @@ class PolicyEngine:
         self._check_audit(result)
         self._check_approval(skill_dir, result)
         self._check_cost(result)
+        self._check_risk(skill_dir, result)
 
         return result
+
+    # ── risk ──────────────────────────────────────────────────────────
+
+    def _check_risk(self, skill_dir: Path, result: PolicyResult) -> None:
+        """Match the skill's declared risk against this policy's risk_controls."""
+        from skillctl.skill_yaml import (
+            SideEffects,
+            SkillYamlError,
+            load_skill_yaml,
+        )
+
+        if not (
+            self._policy.risk_controls
+            or self._policy.require_risk_profile
+            or self._policy.require_complete_risk_profile
+        ):
+            return
+
+        try:
+            overlay = load_skill_yaml(skill_dir)
+        except SkillYamlError as exc:
+            result.checks.append(
+                RequirementCheck(
+                    section="risk",
+                    requirement="skill.yaml loadable for risk check",
+                    outcome=CheckOutcome.FAIL,
+                    detail=exc.framework_error.summary,
+                    fix=exc.framework_error.fix or "",
+                )
+            )
+            return
+
+        if overlay is None:
+            result.checks.append(
+                RequirementCheck(
+                    section="risk",
+                    requirement="skill.yaml present for risk check",
+                    outcome=CheckOutcome.FAIL,
+                    fix="Create skill.yaml and declare a `risk:` block.",
+                )
+            )
+            return
+
+        risk = overlay.risk
+
+        if self._policy.require_risk_profile and not risk.declared:
+            result.checks.append(
+                RequirementCheck(
+                    section="risk.declared",
+                    requirement="skill declares a risk profile",
+                    outcome=CheckOutcome.FAIL,
+                    fix=(
+                        "Add a `risk:` block to skill.yaml with at least "
+                        "`level: <low|medium|high|critical>`."
+                    ),
+                )
+            )
+            return
+
+        if self._policy.require_complete_risk_profile and not risk.is_complete:
+            missing: list[str] = []
+            if risk.level is None:
+                missing.append("level")
+            if risk.data_classification is None:
+                missing.append("data_classification")
+            if risk.side_effects is None:
+                missing.append("side_effects")
+            result.checks.append(
+                RequirementCheck(
+                    section="risk.complete_profile",
+                    requirement="skill declares a complete risk profile",
+                    outcome=CheckOutcome.FAIL,
+                    detail=f"missing: {', '.join(missing)}",
+                    fix=(
+                        "Set every risk field in skill.yaml. "
+                        "See docs/strictness-levels.md for the schema."
+                    ),
+                )
+            )
+
+        # Per-level required-controls.
+        from skillctl.skill_yaml import RiskLevel as RL
+
+        for control in self._policy.risk_controls:
+            policy_level = RL.from_string(control.level)
+            if policy_level is None or risk.level is None:
+                continue
+            if not risk.level.at_least(policy_level):
+                continue
+
+            # The skill's risk is at-or-above this control's threshold.
+            # Every flag set in the control becomes a requirement.
+            if control.require_sandbox:
+                # Sandbox is a runtime concern; surface UNKNOWN since the
+                # runtime hook bus is not yet wired.
+                result.checks.append(
+                    RequirementCheck(
+                        section=f"risk_controls.{control.level}.require_sandbox",
+                        requirement=f"runtime sandbox required at risk={control.level}",
+                        outcome=CheckOutcome.UNKNOWN,
+                        detail="enforced by the runtime hook bus (Phase 4)",
+                    )
+                )
+            if control.require_signature:
+                # Signature check today: bundle.sig file present in the bundle
+                # is verified at install time; at validate time we surface as
+                # UNKNOWN since the skill hasn't been published yet.
+                result.checks.append(
+                    RequirementCheck(
+                        section=f"risk_controls.{control.level}.require_signature",
+                        requirement=f"signature required at risk={control.level}",
+                        outcome=CheckOutcome.UNKNOWN,
+                        detail="verified at install time against bundle.sig",
+                    )
+                )
+            if control.require_human_approval:
+                ok = risk.requires_human_approval
+                result.checks.append(
+                    RequirementCheck(
+                        section=f"risk_controls.{control.level}.require_human_approval",
+                        requirement=(
+                            f"`requires_human_approval: true` at risk={control.level}"
+                        ),
+                        outcome=CheckOutcome.PASS if ok else CheckOutcome.FAIL,
+                        fix=(
+                            "Add `requires_human_approval: true` to the "
+                            "skill.yaml `risk:` block."
+                            if not ok
+                            else ""
+                        ),
+                    )
+                )
+            if control.require_security_reviewer:
+                # Defer to ownership.yaml — the OwnershipValidator handles
+                # the actual security-reviewer presence check.
+                result.checks.append(
+                    RequirementCheck(
+                        section=f"risk_controls.{control.level}.require_security_reviewer",
+                        requirement=(
+                            f"security reviewer in ownership at risk={control.level}"
+                        ),
+                        outcome=CheckOutcome.UNKNOWN,
+                        detail="verified by the ownership validator",
+                    )
+                )
+            if control.require_injection_corpus:
+                evals = skill_dir / "evals" / "injection.json"
+                ok = evals.is_file()
+                result.checks.append(
+                    RequirementCheck(
+                        section=f"risk_controls.{control.level}.require_injection_corpus",
+                        requirement=(
+                            f"evals/injection.json present at risk={control.level}"
+                        ),
+                        outcome=CheckOutcome.PASS if ok else CheckOutcome.FAIL,
+                        fix=(
+                            "Create evals/injection.json. The framework's "
+                            "default corpus can be written via "
+                            "`write_default_corpus` (15 cases, 7 categories)."
+                            if not ok
+                            else ""
+                        ),
+                    )
+                )
+            if control.max_side_effects:
+                max_se = SideEffects.from_string(control.max_side_effects)
+                if max_se is not None and risk.side_effects is not None:
+                    order = [
+                        SideEffects.NONE,
+                        SideEffects.READ_ONLY,
+                        SideEffects.REVERSIBLE,
+                        SideEffects.EXTERNAL,
+                        SideEffects.DESTRUCTIVE,
+                    ]
+                    ok = order.index(risk.side_effects) <= order.index(max_se)
+                    result.checks.append(
+                        RequirementCheck(
+                            section=(
+                                f"risk_controls.{control.level}.max_side_effects"
+                            ),
+                            requirement=(
+                                f"side_effects <= {max_se.value} at risk={control.level}"
+                            ),
+                            outcome=CheckOutcome.PASS if ok else CheckOutcome.FAIL,
+                            detail=f"declared: {risk.side_effects.value}",
+                            fix=(
+                                f"Reduce skill scope so side_effects ≤ "
+                                f"{max_se.value}, or downgrade `risk.level`."
+                                if not ok
+                                else ""
+                            ),
+                        )
+                    )
+            if control.forbidden_data_classifications:
+                if (
+                    risk.data_classification is not None
+                    and risk.data_classification.value
+                    in control.forbidden_data_classifications
+                ):
+                    result.checks.append(
+                        RequirementCheck(
+                            section=(
+                                "risk_controls."
+                                f"{control.level}.forbidden_data_classifications"
+                            ),
+                            requirement=(
+                                f"data_classification not in "
+                                f"{list(control.forbidden_data_classifications)} "
+                                f"at risk={control.level}"
+                            ),
+                            outcome=CheckOutcome.FAIL,
+                            detail=(
+                                f"declared: {risk.data_classification.value}"
+                            ),
+                            fix=(
+                                "This policy forbids this data class at this "
+                                "risk level. Either reclassify the skill or "
+                                "apply a different policy."
+                            ),
+                        )
+                    )
 
     # ── required_artifacts ────────────────────────────────────────────
 

@@ -24,6 +24,7 @@ from .base import (
     Policy,
     PolicyMetadata,
     RequiredArtifacts,
+    RiskControl,
 )
 
 
@@ -108,6 +109,11 @@ def load_policy_from_dict(raw: dict[str, Any], *, source: Path | None = None) ->
     cost = _parse_cost(policy_block.get("cost"))
     compliance = _parse_compliance(policy_block.get("compliance_frameworks"))
     custom = _parse_string_tuple(policy_block.get("custom_validators"))
+    risk_controls = _parse_risk_controls(policy_block.get("risk_controls"))
+    require_risk_profile = bool(policy_block.get("require_risk_profile", False))
+    require_complete_risk_profile = bool(
+        policy_block.get("require_complete_risk_profile", False)
+    )
 
     return Policy(
         metadata=metadata,
@@ -121,7 +127,41 @@ def load_policy_from_dict(raw: dict[str, Any], *, source: Path | None = None) ->
         cost=cost,
         compliance_frameworks=compliance,
         custom_validators=custom,
+        risk_controls=risk_controls,
+        require_risk_profile=require_risk_profile,
+        require_complete_risk_profile=require_complete_risk_profile,
     )
+
+
+def _parse_risk_controls(block: Any) -> tuple[RiskControl, ...]:
+    """Parse risk_controls: list of per-level required-controls blocks."""
+    if not isinstance(block, list):
+        return ()
+    out: list[RiskControl] = []
+    for entry in block:
+        if not isinstance(entry, dict):
+            continue
+        level = str(entry.get("level") or "").lower()
+        if level not in {"low", "medium", "high", "critical"}:
+            continue
+        forbidden = _parse_string_tuple(entry.get("forbidden_data_classifications"))
+        out.append(
+            RiskControl(
+                level=level,
+                require_sandbox=bool(entry.get("require_sandbox", False)),
+                require_signature=bool(entry.get("require_signature", False)),
+                require_human_approval=bool(entry.get("require_human_approval", False)),
+                require_security_reviewer=bool(
+                    entry.get("require_security_reviewer", False)
+                ),
+                require_injection_corpus=bool(
+                    entry.get("require_injection_corpus", False)
+                ),
+                max_side_effects=str(entry.get("max_side_effects") or ""),
+                forbidden_data_classifications=forbidden,
+            )
+        )
+    return tuple(out)
 
 
 # ── per-section parsers ─────────────────────────────────────────────────────

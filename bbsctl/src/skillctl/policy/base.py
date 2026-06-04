@@ -134,6 +134,26 @@ class ComplianceMapping:
 
 
 @dataclass(frozen=True)
+class RiskControl:
+    """Required controls per risk level.
+
+    A policy can declare: "at risk_level >= high, require sandbox + signature
+    + human approval; at critical, additionally require a security reviewer."
+    The engine compares the skill's declared `risk.level` (from skill.yaml)
+    against these controls and surfaces any unsatisfied requirement.
+    """
+
+    level: str                              # low | medium | high | critical
+    require_sandbox: bool = False
+    require_signature: bool = False
+    require_human_approval: bool = False
+    require_security_reviewer: bool = False
+    require_injection_corpus: bool = False
+    max_side_effects: str = ""              # e.g. 'reversible' caps the allowed side_effects
+    forbidden_data_classifications: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class Policy:
     """A complete parsed policy file."""
 
@@ -148,6 +168,13 @@ class Policy:
     cost: CostRequirements = field(default_factory=CostRequirements)
     compliance_frameworks: tuple[ComplianceMapping, ...] = ()
     custom_validators: tuple[str, ...] = ()
+
+    # Risk-level → required-controls. Each entry says: "if the skill's
+    # `risk.level` matches or exceeds this entry's level, these controls
+    # are required." Multiple entries fold cumulatively (high inherits low).
+    risk_controls: tuple[RiskControl, ...] = ()
+    require_risk_profile: bool = False      # if True, skill must declare risk
+    require_complete_risk_profile: bool = False  # if True, every risk field set
 
 
 # ── requirement evaluation result ───────────────────────────────────────────
@@ -235,4 +262,5 @@ __all__ = [
     "PolicyResult",
     "RequiredArtifacts",
     "RequirementCheck",
+    "RiskControl",
 ]
