@@ -42,12 +42,19 @@ def _build_fuzz_evaluator(skill, runtime, judge):
     return SemanticFuzzer(skill=skill, runtime=runtime, judge=judge)
 
 
+def _build_triggers_evaluator(skill, runtime, judge):
+    from .triggers import TriggerEvaluator
+
+    return TriggerEvaluator(skill=skill, runtime=runtime, judge=judge)
+
+
 _EVALUATOR_REGISTRY: dict[str, EvaluatorFactory] = {
     "behavior": lambda skill, runtime, judge: BehaviorEvaluator(
         skill=skill, runtime=runtime, judge=judge
     ),
     "injection": _build_injection_evaluator,
     "fuzz": _build_fuzz_evaluator,
+    "triggers": _build_triggers_evaluator,
 }
 
 

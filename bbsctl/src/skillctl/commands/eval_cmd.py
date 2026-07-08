@@ -160,6 +160,16 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         help="SemanticFuzzer rephrasings per case (default: 4).",
     )
     p.add_argument(
+        "--baseline",
+        action="store_true",
+        default=False,
+        help=(
+            "A/B baseline: run every case twice — once with the skill, once "
+            "without — and report per-case improvement deltas + suite-level "
+            "pass-rate lift. Answers: does the skill actually help?"
+        ),
+    )
+    p.add_argument(
         "--cache",
         action="store_true",
         default=False,
@@ -268,6 +278,7 @@ def run(args: argparse.Namespace) -> int:
         case_filter=args.case,
         use_cache=args.cache or args.refresh_cache,
         refresh_cache=args.refresh_cache,
+        baseline=getattr(args, "baseline", False),
     )
 
     try:
@@ -275,6 +286,13 @@ def run(args: argparse.Namespace) -> int:
     except EvalLoadError as exc:
         emit(exc.framework_error)
         return 2
+    except Exception as exc:
+        # Scenario load errors carry a framework_error; surface uniformly.
+        fw = getattr(exc, "framework_error", None)
+        if fw is not None:
+            emit(fw)
+            return 2
+        raise
     except AgentSkillsValidationError as exc:
         emit(
             FrameworkError(

@@ -300,7 +300,7 @@ The `Fix` line is always copy-pasteable. The audit-enforced rule is that 90%+ of
 - [`docs/strictness-levels.md`](docs/strictness-levels.md) — the strictness axis explained
 - [`docs/evaluation.md`](docs/evaluation.md) — the eval corpus convention and `bbsctl eval`
 - [`docs/spec-guidelines.md`](docs/spec-guidelines.md) — the spec, aligned with [agentskills.io](https://agentskills.io)
-- [`docs/design-patterns.md`](docs/design-patterns.md) — Strategy, Factory, Adapter, Decorator patterns
+- `docs/design-patterns.md` — Strategy, Factory, Adapter, Decorator patterns *(planned)*
 - [`docs/best-practices.md`](docs/best-practices.md) — authoring guidance
 - [`docs/troubleshooting.md`](docs/troubleshooting.md) — error → fix table
 
@@ -308,7 +308,7 @@ The `Fix` line is always copy-pasteable. The audit-enforced rule is that 90%+ of
 
 ## Architecture
 
-The framework is built on three reusable patterns (per [`docs/design-patterns.md`](docs/design-patterns.md)):
+The framework is built on three reusable patterns (see `docs/design-patterns.md`, *planned*):
 
 - **Strategy + Factory** — `CompileStep`, `Validator`, `Evaluator`, `AgentRuntime`, `PublishTarget`. Each is an interface; concrete implementations register through a factory. Adding a new validator or runtime is one class plus one registration line.
 - **Adapter** — for cross-framework runtimes (Claude Agent SDK, MCP, LangGraph, CrewAI). Each adapter normalizes a foreign runtime into the `AgentRuntime` interface so `bbsctl run` and `bbsctl eval` don't care which one is in use.
@@ -355,7 +355,7 @@ make clean     # Remove build artifacts
 
 Two things make a PR easier to merge:
 
-1. **A friction-audit note.** If your change touches the CLI surface or any error message, walk the affected flow as a fresh developer and note where you hesitated. The friction-audit protocol ([`docs/friction-audit.md`](docs/friction-audit.md)) is the template.
+1. **A friction-audit note.** If your change touches the CLI surface or any error message, walk the affected flow as a fresh developer and note where you hesitated. The friction-audit protocol (see `docs/friction-audit.md`, *planned*) is the template.
 2. **No vapor options.** If you add an argparse `choices=` value, the implementation behind it must work end-to-end. The vapor-options lint test walks the support registry and will fail otherwise.
 
 ## License

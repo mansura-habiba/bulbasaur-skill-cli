@@ -125,7 +125,7 @@ All of that exists. None of it is required at `local` strictness. The marketplac
 | Share a skill with your team | [recipes/share-with-team.md](recipes/share-with-team.md) *(Phase 2)* |
 | Ship a skill to production | [recipes/ship-to-org.md](recipes/ship-to-org.md) *(Phase 3)* |
 | Diagnose an error | [troubleshooting.md](troubleshooting.md) |
-| Learn the skill design patterns | [design-patterns.md](design-patterns.md) *(Phase 2)* |
+| Learn the skill design patterns | `design-patterns.md` *(Phase 2)* |
 
 ## The five-minute promise
 

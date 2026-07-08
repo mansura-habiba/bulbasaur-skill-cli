@@ -25,6 +25,7 @@ import traceback
 from skillctl import __version__
 from skillctl.commands import (
     audit_cmd,
+    author_cmd,
     classify_cmd,
     eval_cmd,
     gateway_cmd,
@@ -53,6 +54,7 @@ _COMMANDS = [
     init_cmd,
     # Authoring
     new_cmd,
+    author_cmd,
     strictness_cmd,
     # Build
     compile_cmd,

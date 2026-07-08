@@ -259,6 +259,7 @@ class _Args:
         self.cache = kwargs.get("cache", False)
         self.refresh_cache = kwargs.get("refresh_cache", False)
         self.snapshot = kwargs.get("snapshot")
+        self.baseline = kwargs.get("baseline", False)
         self.strictness = kwargs.get("strictness")
         self.output = kwargs.get("output", "silent")
 

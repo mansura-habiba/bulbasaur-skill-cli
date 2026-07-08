@@ -44,6 +44,7 @@ class EvalRunner:
         case_filter: str | None = None,
         use_cache: bool = False,
         refresh_cache: bool = False,
+        baseline: bool = False,
     ) -> None:
         self._skill_dir = skill_dir
         self._strictness = strictness
@@ -53,6 +54,7 @@ class EvalRunner:
         self._case_filter = case_filter
         self._use_cache = use_cache
         self._refresh_cache = refresh_cache
+        self._baseline = baseline
 
     def run(self) -> EvalReport:
         # Compute reproducibility hashes up front so a cache hit can short-circuit.
@@ -90,7 +92,14 @@ class EvalRunner:
         )
         judge = self._build_judge()
 
+        from .scenario import load_scenarios
+
         suites = load_suites(self._skill_dir / "evals")
+        # Scenarios sit alongside the JSON suites under evals/scenarios/.
+        # They produce EvalSuite objects named `scenario:<name>` so they
+        # plug into the same dispatch loop. The configured evaluator for
+        # `behavior` (the fallback) is what scores them by default.
+        suites = suites + load_scenarios(self._skill_dir)
         if self._suite_filter:
             suites = [s for s in suites if s.name == self._suite_filter]
 
@@ -114,6 +123,16 @@ class EvalRunner:
             evaluator = build_evaluator(
                 suite.name, skill=skill, runtime=runtime, judge=judge
             )
+            # A/B baseline wraps any evaluator transparently.
+            if self._baseline:
+                from .baseline import BaselineEvaluator
+
+                evaluator = BaselineEvaluator(
+                    skill=skill,
+                    runtime=runtime,
+                    judge=judge,
+                    inner=evaluator,
+                )
             suite_results.append(evaluator.evaluate(filtered))
 
         report = EvalReport(

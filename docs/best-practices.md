@@ -1,7 +1,7 @@
 # Skill best practices
 
 > **Status:** Placeholder — full guidance is a Phase 2 deliverable.
-> See [`mental-model.md` §7](../mental-model.md) for the working best-practices list.
+> See `mental-model.md` §7 (*planned, repo root*) for the working best-practices list.
 
 This document will be the durable internal cookbook — authoring imperatives, common anti-patterns, recurring failure modes, "gotchas" that should appear in every relevant skill. It is updated whenever a postmortem produces a generalizable lesson.
 
