@@ -90,3 +90,13 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "RUF"]
+
+[tool.bulbasaur]
+version = 1
+default_strictness = "team"
+
+[tool.bulbasaur.spec_lint]
+local = "skip"
+team = "warn"
+org = "block"
+regulated = "block"

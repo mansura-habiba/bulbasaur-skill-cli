@@ -29,6 +29,7 @@ from skillctl.commands import (
     eval_cmd,
     gateway_cmd,
     marketplace_cmd,
+    plugin_cmd,
     policy_cmd,
     risk_cmd,
     strictness_cmd,
@@ -66,6 +67,7 @@ _COMMANDS = [
     gateway_cmd,
     # Distribution
     marketplace_cmd,
+    plugin_cmd,
     publish_cmd,
     install_cmd,
     # Trust & external skills
