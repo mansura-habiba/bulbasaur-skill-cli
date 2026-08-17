@@ -210,10 +210,15 @@ def _run_team_marketplace_publish(
     marketplace_path: Path,
     strictness: Strictness,
 ) -> int:
-    """Publish a skill to a Git-backed team marketplace."""
+    """Publish a skill to a Git-backed team marketplace.
+
+    Prefers manifest.yml metadata (name, version, description) when present,
+    falling back to SKILL.md frontmatter for SKILL.md-only skills.
+    """
     import os
 
     from skillctl.marketplace.git_marketplace import GitMarketplace
+    from skillctl.marketplace.converter import ManifestConverter, ManifestConverterError
 
     marketplace = GitMarketplace(marketplace_path)
     if not marketplace.exists():
@@ -225,8 +230,25 @@ def _run_team_marketplace_publish(
         )
         return 1
 
-    skill_name = frontmatter.name or skill_dir.name
-    plugin_name = f"{skill_name}-plugin"
+    # Prefer manifest.yml when present — it is the authoritative OIC source.
+    manifest_path = skill_dir / "manifest.yml"
+    if manifest_path.exists():
+        converter = ManifestConverter(skill_dir)
+        try:
+            converter.validate()
+            plugin_json = converter.convert_to_plugin_json()
+            skill_name = converter.load_manifest().get("name") or skill_dir.name
+            plugin_name = plugin_json["name"]
+            description = plugin_json.get("description", "")
+        except ManifestConverterError as exc:
+            emit(exc.framework_error)
+            return 1
+    else:
+        # Fallback: SKILL.md-only skill (no manifest.yml).
+        skill_name = frontmatter.name or skill_dir.name
+        plugin_name = f"{skill_name}-plugin"
+        description = frontmatter.description or ""
+
     author_name = os.environ.get("USER") or "anonymous"
 
     try:
@@ -234,7 +256,7 @@ def _run_team_marketplace_publish(
             plugin_name=plugin_name,
             skill_name=skill_name,
             skill_dir=skill_dir,
-            description=frontmatter.description or "",
+            description=description,
             strictness=strictness.value,
             author_name=author_name,
         )
