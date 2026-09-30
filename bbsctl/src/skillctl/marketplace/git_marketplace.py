@@ -39,6 +39,34 @@ class MarketplaceEntry:
     description: str
     version: str
     strictness: str = "local"
+    display_name: str | None = None
+    strict: bool | None = None
+    default_enabled: bool | None = None
+    skills: list[str] | None = None
+    category: str | None = None
+    keywords: list[str] | None = None
+
+    def to_dict(self) -> dict:
+        d = {
+            "name": self.name,
+            "source": self.source,
+            "description": self.description,
+            "version": self.version,
+            "strictness": self.strictness,
+        }
+        if self.display_name is not None:
+            d["displayName"] = self.display_name
+        if self.strict is not None:
+            d["strict"] = self.strict
+        if self.default_enabled is not None:
+            d["defaultEnabled"] = self.default_enabled
+        if self.skills is not None:
+            d["skills"] = self.skills
+        if self.category is not None:
+            d["category"] = self.category
+        if self.keywords is not None:
+            d["keywords"] = self.keywords
+        return d
 
 
 @dataclass
@@ -48,14 +76,22 @@ class MarketplaceManifest:
     description: str
     plugins: list[MarketplaceEntry] = field(default_factory=list)
     generated_by: str = ""
+    plugin_root: str = "./plugins"
+    allow_cross_dependencies: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        metadata = {
+            "generated_by": self.generated_by or f"skillctl {__version__}",
+            "pluginRoot": self.plugin_root,
+        }
         return {
             "name": self.name,
             "owner": self.owner,
             "description": self.description,
+            "metadata": metadata,
+            "allowCrossMarketplaceDependenciesOn": self.allow_cross_dependencies,
             "plugins": [
-                {
+                e.to_dict() if hasattr(e, "to_dict") else {
                     "name": e.name,
                     "source": e.source,
                     "description": e.description,
@@ -64,7 +100,6 @@ class MarketplaceManifest:
                 }
                 for e in self.plugins
             ],
-            "metadata": {"generated_by": self.generated_by or f"skillctl {__version__}"},
         }
 
     @classmethod
@@ -76,15 +111,26 @@ class MarketplaceManifest:
                 description=p.get("description", ""),
                 version=p.get("version", "0.1.0"),
                 strictness=p.get("strictness", "local"),
+                display_name=p.get("displayName"),
+                strict=p.get("strict"),
+                default_enabled=p.get("defaultEnabled"),
+                skills=p.get("skills"),
+                category=p.get("category"),
+                keywords=p.get("keywords"),
             )
             for p in data.get("plugins", [])
         ]
+        metadata = data.get("metadata", {})
+        plugin_root = metadata.get("pluginRoot", "./plugins")
+        allow_cross = data.get("allowCrossMarketplaceDependenciesOn", [])
         return cls(
             name=data.get("name", ""),
             owner=data.get("owner", {"name": "unknown"}),
             description=data.get("description", ""),
             plugins=entries,
-            generated_by=data.get("metadata", {}).get("generated_by", ""),
+            generated_by=metadata.get("generated_by", ""),
+            plugin_root=plugin_root,
+            allow_cross_dependencies=allow_cross,
         )
 
 
@@ -192,7 +238,29 @@ class GitMarketplace:
 
         Returns the path to the published plugin directory.
         """
-        plugin_dir = self._root / self._PLUGINS_DIR / plugin_name
+        # Resolve files & converters
+        manifest_path = skill_dir / "manifest.yml"
+        has_manifest = manifest_path.exists()
+
+        derived_plugin_name = plugin_name
+        derived_version = version
+        derived_description = description
+        derived_strictness = strictness
+
+        if has_manifest:
+            from skillctl.marketplace.converter import ManifestConverter, verify_strict_mode_conflict
+            converter = ManifestConverter(skill_dir)
+            # This will raise a clear ManifestConverterError / FrameworkError on validate failure
+            converter.validate()
+            plugin_json_data = converter.convert_to_plugin_json()
+            derived_plugin_name = plugin_json_data["name"]
+            derived_version = plugin_json_data["version"]
+            derived_description = plugin_json_data["description"]
+            derived_strictness = "team" # fallback to team level for OIC
+            # Verify strict mode conflict on the source directory before publishing
+            verify_strict_mode_conflict(skill_dir, converter.derive_strict_mode())
+
+        plugin_dir = self._root / self._PLUGINS_DIR / derived_plugin_name
         skill_target_dir = plugin_dir / "skills" / skill_name
         plugin_meta_dir = plugin_dir / ".claude-plugin"
 
@@ -206,39 +274,62 @@ class GitMarketplace:
         _copy_skill_files(src=skill_dir, dst=skill_target_dir)
 
         # Write plugin.json (Claude Code plugin spec).
-        author: dict[str, str] = {"name": author_name}
-        if author_email:
-            author["email"] = author_email
-        plugin_manifest = {
-            "name": plugin_name,
-            "version": version,
-            "description": description,
-            "author": author,
-            "metadata": {"strictness": strictness},
-        }
-        (plugin_meta_dir / "plugin.json").write_text(
-            json.dumps(plugin_manifest, indent=2), encoding="utf-8"
-        )
+        if has_manifest:
+            (plugin_meta_dir / "plugin.json").write_text(
+                json.dumps(plugin_json_data, indent=2), encoding="utf-8"
+            )
+        else:
+            author: dict[str, str] = {"name": author_name}
+            if author_email:
+                author["email"] = author_email
+            plugin_manifest = {
+                "name": derived_plugin_name,
+                "version": derived_version,
+                "description": derived_description,
+                "author": author,
+                "metadata": {"strictness": derived_strictness},
+            }
+            (plugin_meta_dir / "plugin.json").write_text(
+                json.dumps(plugin_manifest, indent=2), encoding="utf-8"
+            )
 
         # Write bundle.lock + bundle.sig (signature is a placeholder until
         # Sigstore lands in Phase 3).
         from .bundle import write_bundle_lock, write_bundle_signature_placeholder
 
-        write_bundle_lock(plugin_dir, name=plugin_name, version=version)
+        write_bundle_lock(plugin_dir, name=derived_plugin_name, version=derived_version)
         write_bundle_signature_placeholder(plugin_dir)
 
         # Update marketplace.json.
         market_manifest = self.load_manifest()
-        entry = MarketplaceEntry(
-            name=plugin_name,
-            source=f"./plugins/{plugin_name}",
-            description=description,
-            version=version,
-            strictness=strictness,
-        )
+
+        if has_manifest:
+            entry_data = converter.convert_to_marketplace_entry()
+            entry = MarketplaceEntry(
+                name=derived_plugin_name,
+                source=f"./plugins/{derived_plugin_name}",
+                description=derived_description,
+                version=derived_version,
+                strictness=derived_strictness,
+                display_name=entry_data.get("displayName"),
+                strict=entry_data.get("strict"),
+                default_enabled=entry_data.get("defaultEnabled"),
+                skills=entry_data.get("skills"),
+                category=entry_data.get("category"),
+                keywords=entry_data.get("keywords"),
+            )
+        else:
+            entry = MarketplaceEntry(
+                name=derived_plugin_name,
+                source=f"./plugins/{derived_plugin_name}",
+                description=derived_description,
+                version=derived_version,
+                strictness=derived_strictness,
+            )
+
         # Upsert by name.
         market_manifest.plugins = [
-            p for p in market_manifest.plugins if p.name != plugin_name
+            p for p in market_manifest.plugins if p.name != derived_plugin_name
         ]
         market_manifest.plugins.append(entry)
         self.save_manifest(market_manifest)
