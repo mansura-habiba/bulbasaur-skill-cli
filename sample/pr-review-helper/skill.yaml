@@ -1,0 +1,11 @@
+# Bulbasaur enterprise overlay — see docs/strictness-levels.md
+name: pr-review-helper
+strictness: team
+version: 0.1.0
+
+ownership:
+  team: platform-ops
+  contact: naveen-bhalla
+
+risk:
+  level: low

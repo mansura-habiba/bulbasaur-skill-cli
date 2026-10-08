@@ -1,0 +1,9 @@
+schema_version: bulbasaur/v1
+skill: pr-review-helper
+
+# This skill only reads files — no shell commands or HTTP calls needed.
+commands:
+  default: deny
+
+http:
+  default: deny

@@ -1,0 +1,25 @@
+{
+  "skill_name": "pr-review-helper",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Review a PR that changes auth middleware and has no tests.",
+      "expected_output": "Flags auth risk and missing tests.",
+      "files": [],
+      "assertions": [
+        "The reply identifies authentication-related risk",
+        "The reply mentions missing tests"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Review a PR that changes deployment config and timeout settings.",
+      "expected_output": "Flags deployment/config risk and asks for rollback considerations.",
+      "files": [],
+      "assertions": [
+        "The reply identifies deployment or config risk",
+        "The reply mentions rollback or operational concerns"
+      ]
+    }
+  ]
+}
