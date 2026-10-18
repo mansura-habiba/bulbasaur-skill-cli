@@ -129,20 +129,43 @@ When you find yourself fixing the same compliance issue across three juniors' PR
 
 ---
 
+## What is published vs local
+
+**Published** (durable framework — cloneable by anyone):
+
+- Schemas, `philosophy.md`, `principles.md`, `testing-philosophy.md`, `diagrams.md`
+- `capabilities/`, `acceptance/`, `examples/`, `forbidden-terms.txt`
+
+**Local only** (gitignored — working notes, not for the public tree):
+
+- `tasks/` — optional working copies of task cards (canonical source is the GitHub issue)
+- `wiki/` — session / audit notes
+- `progress.md` — session milestones
+
+Seniors may keep local YAML under `tasks/` while drafting; never commit those paths. CI validates the committed `examples/task-card*.yaml` against the schema, not per-issue working files.
+
 ## File index
 
 ```
-.governance/
+.governance/                            ← published subset
 ├── philosophy.md                       ← read this once
 ├── README.md                           ← this file
+├── principles.md
 ├── capability-spec.schema.yaml         ← schema for capabilities (senior writes)
 ├── task-card.schema.yaml               ← schema for tasks (junior fills via form)
+├── acceptance.schema.yaml
 ├── capabilities/
-│   └── skill-registry.yaml             ← example capability instance
+│   └── *.yaml                          ← capability instances
+├── acceptance/
+│   └── *.yaml
 ├── examples/
-│   └── task-card.example.yaml          ← example task card
-└── tests/contract/                     ← executable acceptance tests
-    └── test_task_card_validates.py     ← v0.1: validates every task card
+│   └── task-card.example.yaml          ← example task card (CI validates this)
+└── forbidden-terms.txt
+
+.governance/ (local only — gitignored)
+├── tasks/                              ← optional working copies
+├── wiki/                               ← session notes
+└── progress.md
 
 (at repo root)
 AGENTS.md                               ← AI rules — all AI tools load this
@@ -152,6 +175,8 @@ AGENTS.md                               ← AI rules — all AI tools load this
 ├── pull_request_template.md            ← the PR checklist
 └── workflows/
     └── governance.yml                  ← the CI gate
+
+tests/contract/                         ← executable acceptance tests
 ```
 
 ---
