@@ -19,9 +19,9 @@ make wheel
 # Unit tests (stubs Langflow; no Docker required)
 make test
 
-# Build and run Langflow on http://localhost:7860
-make docker-build
-make docker-up
+# Build and run Langflow on http://localhost:7860 (Podman preferred if installed)
+make podman-up
+# or: make docker-up
 ```
 
 ## Flow wiring
