@@ -1,0 +1,16 @@
+# Capability note: skill-eval integrations (local staging)
+id: skill-eval-integrations
+status: staged
+summary: >
+  bbsctl evaluates agentskills.io skill contracts. Hosts consume skills at runtime.
+  Staging samples live under sample/langflow-bbsctl and sample/cuga-bbsctl until PyPI.
+consumes:
+  - bbsctl CLI stages: compile, validate, eval
+provides:
+  - Langflow custom component Pass/Fail gate
+  - CUGA Make skill-eval gate + upstream draft
+non_goals:
+  - Replacing CUGA load_skill or cuga evaluate
+  - Replacing Langflow Eval Suites / Skill Packs
+  - Vendoring bbsctl into host monorepos
+tracking_issue: https://github.com/mansura-habiba/bulbasaur-skill-cli/issues/14
