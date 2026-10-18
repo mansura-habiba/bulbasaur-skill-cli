@@ -188,9 +188,10 @@ jobs:
           )
           failed = 0
           for term in terms:
-              # Word-ish boundary: not alphanumeric/_ on either side (allows --oic).
+              # Token boundary: not letter/digit/_/- on either side
+              # (so short tokens do not match inside longer flags).
               pat = re.compile(
-                  rf"(?<![A-Za-z0-9_]){re.escape(term)}(?![A-Za-z0-9_])",
+                  rf"(?<![A-Za-z0-9_-]){re.escape(term)}(?![A-Za-z0-9_-])",
                   re.IGNORECASE,
               )
               if pat.search(added):
