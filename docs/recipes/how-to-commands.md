@@ -83,6 +83,23 @@ If SkillSpector is missing, exit `2` with a Fix line — install, then re-run `b
 
 ---
 
+## Models (inspect vs mellea-certify)
+
+| Command | Needs an LLM? | Where models are configured |
+|---|---|---|
+| `bbsctl inspect` | **No** | Always runs SkillSpector with `--no-llm` (deterministic SARIF). No API key. |
+| `bbsctl scan` | No | Built-in `bbsctl-audit` heuristics. |
+| `bbsctl mellea-certify` | **Yes** | `[tool.bbsctl.engines.mellea]` in the nearest `pyproject.toml`, or CLI flags. |
+| `bbsctl certify` | Only if `certify = "mellea"` | Same as above. |
+| `bbsctl eval` / `bbsctl run` | Depends on runtime/judge | Separate from lifecycle engines (see Eval below). |
+
+Check what your machine has:
+
+```bash
+bbsctl doctor          # needs_llm + model tags + best-effort Ollama probe
+bbsctl doctor --output json
+```
+
 ## Mellea certify
 
 `bbsctl mellea-certify` always runs the **[Mellea skills compiler](https://github.com/generative-computing/mellea-skills-compiler)** (`mellea-skills compile` → `mellea-skills certify`).
@@ -94,11 +111,38 @@ If SkillSpector is missing, exit `2` with a Fix line — install, then re-run `b
 
 **Pinned revision:** `MELLEA_PIN` in `skillctl/lifecycle/config.py`.
 
+### Install CLI + models
+
 ```bash
 uv sync --group engines
 # or:
 uv tool install "git+https://github.com/generative-computing/mellea-skills-compiler@<pin>"
 
+# Default inference_engine is ollama — pull the configured tags:
+ollama pull granite4.1:3b
+ollama pull ibm/granite3.3-guardian:8b
+bbsctl doctor
+```
+
+### Configure (optional)
+
+In `pyproject.toml`:
+
+```toml
+[tool.bbsctl.engines.mellea]
+inference_engine = "ollama"
+risk_model = "granite4.1:3b"
+guardian_model = "ibm/granite3.3-guardian:8b"
+n_fixtures = 3
+```
+
+Per-run overrides:
+
+```bash
+bbsctl mellea-certify --risk-model granite4.1:3b --guardian-model ibm/granite3.3-guardian:8b
+```
+
+```bash
 bbsctl mellea-certify
 # Config-driven (only if certify = "mellea"):
 bbsctl certify

@@ -14,6 +14,7 @@
 | 2026-10-18 | Dist verbs | User-facing surface is **`bbsctl publish`** + **`bbsctl discover`** only. `marketplace` kept as admin (`init`/`list`/`export`). ARD under discover; catalog `--inplace` under publish. |
 | 2026-10-18 | Naming | Dropped private catalog brand names. Module `catalog_publish`, flag `--inplace`, generic catalog/curation wording. |
 | 2026-10-18 | Issue #6 | Publish concurrency/`skip-existing`; governance env-injection + forbidden-terms; `make ci`; sample strictness matrix; flat-CLI principle. |
+| 2026-10-18 | Models | Doctor reports `needs_llm` + Mellea tags; docs Models section; `mellea-certify` CLI overrides. Issue [#7](https://github.com/mansura-habiba/bulbasaur-skill-cli/issues/7) / BBS-204. |
 | 2026-10-18 | Idempotency gaps | `file_lock` on marketplace upserts; export checkpoint + `--fresh`; pipeline exit-2 resume Fix via `--from`. |
 | 2026-10-18 | Recipe | Added `docs/recipes/how-to-commands.md` — command ↔ engine map. |
 | 2026-10-18 | Inspect | Added `bbsctl inspect` → NVIDIA SkillSpector. `bbsctl scan` is legacy (`bbsctl-audit` only). |

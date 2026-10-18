@@ -20,6 +20,8 @@ Every stage is a **standalone command**. `bbsctl pipeline` walks them in order a
 
 Config lives in `[tool.bbsctl]` (see `bbsctl/pyproject.toml`). Optional engines that are not on PyPI use the PEP 735 `engines` dependency group so the published wheel stays clean.
 
+**Models.** `bbsctl inspect` does not need an LLM (SkillSpector `--no-llm`). `bbsctl mellea-certify` does: tags live under `[tool.bbsctl.engines.mellea]` (Ollama by default). Run `bbsctl doctor` to see `needs_llm` and whether those tags are present. Details: [recipes/how-to-commands.md](recipes/how-to-commands.md#models-inspect-vs-mellea-certify).
+
 ## CI (next_move pattern)
 
 Consumer repos follow the same install shape as

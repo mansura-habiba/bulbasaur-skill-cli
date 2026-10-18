@@ -14,9 +14,13 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         "doctor",
         help="Check lifecycle engines (bbsctl / SkillSpector / Mellea)",
         description=(
-            "Report which engines are on PATH, their versions, and whether "
-            "they match the pinned SHAs in [tool.uv.sources]."
+            "Report which engines are on PATH, their versions, pin match, "
+            "and whether each engine needs LLMs / which model tags are configured.\n\n"
+            "SkillSpector (`bbsctl inspect`) needs_llm=no (--no-llm).\n"
+            "Mellea (`bbsctl mellea-certify`) needs_llm=yes; models come from "
+            "`[tool.bbsctl.engines.mellea]` (Ollama by default)."
         ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument(
         "--output",

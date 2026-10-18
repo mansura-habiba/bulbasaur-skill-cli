@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 from skillctl.messaging import FrameworkError, emit, info
 from skillctl.project_config import load_project_config
@@ -80,6 +82,7 @@ def run_single_stage(
     approve_note: str = "",
     engine_override: Engine | None = None,
     resume_command: str | None = None,
+    mellea_overrides: dict[str, Any] | None = None,
 ) -> int:
     """Run one lifecycle stage via its configured (or overridden) engine."""
     if not skill_dir.is_dir():
@@ -92,6 +95,8 @@ def run_single_stage(
         return 2
 
     config = load_lifecycle_config(skill_dir)
+    if mellea_overrides:
+        config = replace(config, mellea=replace(config.mellea, **mellea_overrides))
     strictness = resolve_strictness(skill_dir, strictness_override, config)
     if engine_override is not None:
         engine = engine_override
