@@ -127,22 +127,69 @@ def _import_lfx() -> tuple[type, Any]:
 Component, Message = _import_lfx()
 
 
+def _build_io() -> tuple[list[Any], list[Any]]:
+    """Declare Langflow inputs/outputs when lfx.io is available; else empty."""
+    try:
+        from lfx.io import DropdownInput, MessageTextInput, Output, StrInput
+    except ImportError:
+        try:
+            from langflow.io import DropdownInput, MessageTextInput, Output, StrInput
+        except ImportError:
+            return [], []
+
+    inputs = [
+        StrInput(
+            name="skill_dir",
+            display_name="Skill directory",
+            info="Path to a folder that contains SKILL.md",
+            required=True,
+        ),
+        DropdownInput(
+            name="stage",
+            display_name="Stage",
+            options=["compile", "validate", "eval"],
+            value="compile",
+        ),
+        MessageTextInput(
+            name="trigger",
+            display_name="Trigger",
+            info="Optional upstream message; any value starts the eval",
+            required=False,
+        ),
+        StrInput(
+            name="timeout_sec",
+            display_name="Timeout (seconds)",
+            value="120",
+            advanced=True,
+        ),
+    ]
+    outputs = [
+        Output(display_name="Pass", name="pass_result", method="pass_result"),
+        Output(display_name="Fail", name="fail_result", method="fail_result"),
+    ]
+    return inputs, outputs
+
+
 class BbsctlSkillEvalComponent(Component):
-    display_name = "bbsctl Skill Eval"
-    description = "Run bbsctl compile, validate, or eval on a skill directory."
+    display_name = "Bbsctl Skill Eval"
+    description = (
+        "Run bbsctl compile, validate, or eval on a skill directory. "
+        "Pass/Fail outputs gate the flow; this does not load skills into an agent."
+    )
     icon = "terminal"
     name = "BbsctlSkillEval"
 
-    inputs: list[Any] = []
-    outputs: list[Any] = []
+    inputs, outputs = _build_io()
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.skill_dir: str = kwargs.get("skill_dir", getattr(self, "skill_dir", ""))
         self.stage: EvalStage = kwargs.get("stage", getattr(self, "stage", "compile"))
-        self.timeout_sec: float = float(
-            kwargs.get("timeout_sec", getattr(self, "timeout_sec", 120.0))
-        )
+        raw_timeout = kwargs.get("timeout_sec", getattr(self, "timeout_sec", 120.0))
+        try:
+            self.timeout_sec = float(raw_timeout)
+        except (TypeError, ValueError):
+            self.timeout_sec = 120.0
         self._outcome: SkillEvalOutcome | None = None
 
     def build_request(self) -> SkillEvalRequest:

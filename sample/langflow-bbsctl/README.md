@@ -35,9 +35,16 @@ Import `flows/BbsctlSkillEval.json` in Langflow, or rebuild by hand.
 The component runs `bbsctl <stage> <skill_dir>`. If `bbsctl` is missing from
 `PATH`, it falls back to `python -m skillctl`.
 
+## After PyPI
+
+Swap the Dockerfile wheel install for `pip install bbsctl>=x.y.z`, then open an
+upstream PR against `langflow-ai/langflow` from this sample. Until then, keep
+work on `feature/langflow-bbsctl-sample` only (see issue #14).
+
 ## Docker notes
 
-The Dockerfile installs public `langflow` from PyPI and the local wheel under
+Requires Docker (or Podman with a `docker` alias) on the host. The Dockerfile
+installs public `langflow` from PyPI and the local wheel under
 `wheels/`. Run `make wheel` before `make docker-build`.
 
 If `docker` is not on `PATH`, or `docker build` fails with network errors in a
