@@ -33,3 +33,8 @@ sample/**/dist/
 
 # Temp clones / scratch trees
 .tmp-*/
+
+# .governance — publish durable framework only; keep working notes local
+.governance/tasks/
+.governance/wiki/
+.governance/progress.md

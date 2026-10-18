@@ -299,4 +299,4 @@ User-facing distribution stays two verbs: **`bbsctl publish`** + **`bbsctl disco
 - [`docs/strictness-levels.md`](strictness-levels.md)
 - [`docs/evaluation.md`](evaluation.md)
 - [`docs/permissions.md`](permissions.md)
-- `.governance/progress.md` — session milestones
+- GitHub issues (task cards) — session milestones; local `.governance/progress.md` is gitignored

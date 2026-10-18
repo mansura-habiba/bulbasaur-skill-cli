@@ -105,7 +105,7 @@ sequenceDiagram
     Repo-->>Cursor: The 4 principles
 
     Junior->>Cursor: "Help me implement issue BBS-127"
-    Cursor->>Repo: Read task card from issue body / .governance/tasks/BBS-127.yaml
+    Cursor->>Repo: Read task card from GitHub issue body (canonical)
     Repo-->>Cursor: Task card YAML
 
     Cursor->>Repo: Read each path in ai_context.required_reading
