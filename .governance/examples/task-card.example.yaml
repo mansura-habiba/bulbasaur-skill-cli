@@ -11,24 +11,22 @@ tier: team
 links:
   parent_capability: .governance/capabilities/skill-registry.yaml
   related_issues:
-    - BBS-118     # earlier discussion of the fixture format
-    - BBS-122     # the broken-skill fixture pair (sibling task)
+    - BBS-118
+    - BBS-122
   depends_on: []
   design_docs:
-    - docs/adr/0010-spec-lint-threshold-per-tier.md
+    - docs/lifecycle.md
 
 goal:
   one_liner: "After this ships, every spec rule has a passing reference fixture in CI."
   bigger_picture: |
-    The spec-guidelines.md is being promoted from placeholder to v0.1. Without paired
-    pass/fail fixtures, the rules in skillctl/agentskills/rules.py are enforced but not
-    documented by example. This task adds the "pass" side of the fixture pair. BBS-122
-    will add the "fail" side. Together they become the public reference implementation
-    of the spec — the thing future engineers (and AIs) read before authoring a skill.
+    Without paired pass/fail fixtures, agentskills rules are enforced but not
+    documented by example. This task adds the "pass" side of the fixture pair.
+    BBS-122 will add the "fail" side.
   done_looks_like: |
     A new file tests/fixtures/spec-v1/minimum-valid-skill/SKILL.md exists, conforms to
     the public agentskills.io spec at minimum, and a contract test asserts that
-    skillctl validate exits 0 on it. Test is in CI and green.
+    bbsctl validate exits 0 on it. Test is in CI and green.
 
 scope:
   in_scope:
@@ -38,7 +36,7 @@ scope:
   non_goals:
     - "Do not add the broken-skill fixture — that is BBS-122"
     - "Do not change rules.py or the schema — the fixture conforms to the existing schema"
-    - "Do not promote spec-guidelines.md off placeholder — separate task"
+    - "Do not change the public agentskills.io surface"
 
 acceptance:
   spec: .governance/acceptance/skill-validation.acceptance.yaml
@@ -57,14 +55,13 @@ ai_context:
   required_reading:
     - .governance/capabilities/skill-registry.yaml
     - bbsctl/src/skillctl/agentskills/rules.py
-    - docs/spec-guidelines.md
-    - docs/adr/0010-spec-lint-threshold-per-tier.md
+    - docs/lifecycle.md
+    - .governance/philosophy.md
   search_for_duplicates: true
   do_not_modify:
     - bbsctl/src/skillctl/agentskills/rules.py
-    - docs/spec-guidelines.md
   preferred_patterns:
-    - "Match the directory layout used by reference-plugins/hello-skill"
+    - "Match the directory layout used by sample/hello-skill"
     - "Use pytest, no new test framework"
     - "Test name describes the behavior, not the implementation"
 

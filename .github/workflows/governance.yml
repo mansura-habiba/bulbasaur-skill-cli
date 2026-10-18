@@ -115,20 +115,24 @@ jobs:
           echo "Stub for v0.1 — see .github/workflows/governance.yml to extend."
 
       - name: Reject PRs without a linked task card
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          body="${{ github.event.pull_request.body }}"
-          if ! echo "$body" | grep -qiE "Closes #[0-9]+"; then
-            echo "::error::PR body must reference 'Closes #<issue>' — every change is anchored to a task card."
+          # Pass untrusted PR body via env — never interpolate into the script text.
+          if ! printf '%s' "$PR_BODY" | grep -qiE '(Closes|Fixes|Resolves) #[0-9]+'; then
+            echo "::error::PR body must reference 'Closes #<issue>' (or Fixes/Resolves) — every change is anchored to a task card."
             exit 1
           fi
 
       - name: Reject PRs that modify .governance/*.schema.yaml without chore label
+        env:
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          changed=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          changed=$(git diff --name-only "origin/${BASE_REF}...HEAD")
           schema_changed=$(echo "$changed" | grep -E '^\.governance/.*\.schema\.yaml$' || true)
           if [ -n "$schema_changed" ]; then
-            labels='${{ toJson(github.event.pull_request.labels) }}'
-            if ! echo "$labels" | grep -q '"chore-framework"'; then
+            if ! printf '%s' "$PR_LABELS" | grep -q '"chore-framework"'; then
               echo "::error::Schema files changed but PR is not labeled 'chore-framework'. Schema changes require tier_approver sign-off."
               echo "Changed:"
               echo "$schema_changed"
@@ -137,18 +141,41 @@ jobs:
           fi
 
       - name: Reject PRs that delete contract tests without explicit label
+        env:
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          deleted=$(git diff --name-only --diff-filter=D origin/${{ github.base_ref }}...HEAD)
+          deleted=$(git diff --name-only --diff-filter=D "origin/${BASE_REF}...HEAD")
           deleted_contract=$(echo "$deleted" | grep -E '^tests/contract/' || true)
           if [ -n "$deleted_contract" ]; then
-            labels='${{ toJson(github.event.pull_request.labels) }}'
-            if ! echo "$labels" | grep -q '"contract-test-removal-approved"'; then
+            if ! printf '%s' "$PR_LABELS" | grep -q '"contract-test-removal-approved"'; then
               echo "::error::Contract tests deleted but PR lacks 'contract-test-removal-approved' label."
               echo "Deleted:"
               echo "$deleted_contract"
               exit 1
             fi
           fi
+
+      - name: Reject forbidden terms in the PR diff
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          terms_file=".governance/forbidden-terms.txt"
+          if [ ! -f "$terms_file" ]; then
+            echo "No forbidden-terms list; skipping."
+            exit 0
+          fi
+          # Only scan added lines in the PR diff (ignore historical mentions).
+          added=$(git diff -U0 "origin/${BASE_REF}...HEAD" | grep -E '^\+' | grep -vE '^\+\+\+' || true)
+          failed=0
+          while IFS= read -r term || [ -n "$term" ]; do
+            [[ -z "$term" || "$term" == \#* ]] && continue
+            if printf '%s' "$added" | grep -Fqi -- "$term"; then
+              echo "::error::Forbidden term '$term' appears in added lines. See $terms_file."
+              failed=1
+            fi
+          done < "$terms_file"
+          exit "$failed"
 
   summary:
     name: Governance summary

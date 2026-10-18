@@ -141,7 +141,7 @@ def test_inspect_requires_skillspector(tmp_path: Path, capsys):
 
 
 def test_help_lists_stage_commands():
-    """Independent stage commands are registered on bbsctl."""
+    """Flat CLI: distribution + engine verbs stay top-level (principle #8)."""
     from skillctl.cli import _build_parser
 
     parser = _build_parser()
@@ -164,6 +164,9 @@ def test_help_lists_stage_commands():
         "discover",
     ):
         assert required in names
+    # Distribution stays two top-level verbs — no marketplace publish/ard user verbs.
+    assert "publish" in names and "discover" in names
+    assert "marketplace" in names  # admin only (init/list/export)
 
 
 @pytest.mark.skipif(not SAMPLE.is_dir(), reason="sample skill missing")

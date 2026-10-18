@@ -16,12 +16,12 @@ No PyPI API token is stored in GitHub secrets.
 ## Publish a release
 
 1. Bump `version` in `bbsctl/pyproject.toml` if needed.
-2. Tag and release (either path works):
+2. Prefer a **GitHub Release** (or manual dispatch). Bare `v*` tag pushes only build+test — they do not upload — so creating a Release from a tag cannot double-publish.
 
 ```bash
 git tag v0.1.1
-git push origin v0.1.1
-gh release create v0.1.1 --generate-notes
+git push origin v0.1.1          # build+test only
+gh release create v0.1.1 --generate-notes   # publishes via Trusted Publishing
 ```
 
 Or run the workflow manually:
@@ -35,6 +35,8 @@ Dry-run (build + test only, no upload):
 ```bash
 gh workflow run python-publish.yml -f publish_to_pypi=false
 ```
+
+The publish job uses `skip-existing: true` and a `concurrency:` group keyed on the ref.
 
 ## Verify
 

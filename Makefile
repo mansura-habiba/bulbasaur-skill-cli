@@ -141,6 +141,34 @@ test:
 lint:
 	cd $(BBSCTL_DIR) && uv run ruff check src/skillctl/
 
+# ── CI parity (same commands the workflows run) ──────────────────────────────
+
+.PHONY: ci-contract
+ci-contract:
+	python -m pip install -q pytest "jsonschema[format]" pyyaml
+	pytest tests/contract/ -q
+
+.PHONY: ci-unit
+ci-unit:
+	cd $(BBSCTL_DIR) && python -m pip install -q -e ".[dev]" && \
+		python -m pytest -q --deselect tests/test_doc_links.py
+
+.PHONY: ci-pipeline
+ci-pipeline:
+	cd $(BBSCTL_DIR) && python -m pip install -q -e .
+	bbsctl pipeline sample/pr-review-helper --strictness team --to compile --no-cache
+	bbsctl pipeline sample/hello-skill --strictness local --to compile --no-cache
+	bbsctl pipeline sample/log-analyzer --strictness local --to compile --no-cache
+	bbsctl pipeline sample/pr-review-helper --fast --strictness local --no-cache
+
+.PHONY: ci-build
+ci-build:
+	cd $(BBSCTL_DIR) && python -m pip install -q build && python -m build --sdist --wheel
+
+.PHONY: ci
+ci: ci-contract ci-unit ci-pipeline ci-build
+	@echo "==> make ci green."
+
 # ── skillops (bbsctl pipeline) ───────────────────────────────────────────────
 
 .PHONY: try-pipeline

@@ -4,12 +4,13 @@ name: bbsctl-pipeline
 
 on:
   push:
-    branches: [main, feat/skillops-orchestrator]
+    branches: [main]
     paths:
       - "bbsctl/**"
       - "sample/**"
       - ".github/actions/bbsctl-pipeline/**"
       - ".github/workflows/bbsctl-pipeline.yml"
+      - "Makefile"
   pull_request:
     branches: [main]
     paths:
@@ -17,6 +18,7 @@ on:
       - "sample/**"
       - ".github/actions/bbsctl-pipeline/**"
       - ".github/workflows/bbsctl-pipeline.yml"
+      - "Makefile"
   workflow_dispatch:
 
 jobs:
@@ -26,17 +28,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        skill:
-          - sample/pr-review-helper
-          - sample/hello-skill
-          - sample/log-analyzer
+        include:
+          # team sample (has skill.yaml + permissions)
+          - skill: sample/pr-review-helper
+            strictness: team
+          # local samples (five-minute promise — no skill.yaml required)
+          - skill: sample/hello-skill
+            strictness: local
+          - skill: sample/log-analyzer
+            strictness: local
     steps:
       - uses: actions/checkout@v4
 
       - uses: ./.github/actions/bbsctl-pipeline
         with:
           path: ${{ matrix.skill }}
-          strictness: team
+          strictness: ${{ matrix.strictness }}
           stages: compile
           install-from: workspace
 

@@ -12,7 +12,8 @@
 | 2026-10-18 | Naming | Product is **`bbsctl` only**. Dropped "skillops" brand. Package `skillctl.lifecycle`, config `[tool.bbsctl]`, action `bbsctl-pipeline`. |
 | 2026-10-18 | Verify | `tests/test_lifecycle_pipeline.py` green. |
 | 2026-10-18 | Dist verbs | User-facing surface is **`bbsctl publish`** + **`bbsctl discover`** only. `marketplace` kept as admin (`init`/`list`/`export`). ARD under discover; catalog `--inplace` under publish. |
-| 2026-10-18 | Naming | Removed IBM-specific **OIC** branding. Module `catalog_publish`, flag `--inplace`, generic catalog/curation wording. |
+| 2026-10-18 | Naming | Dropped private catalog brand names. Module `catalog_publish`, flag `--inplace`, generic catalog/curation wording. |
+| 2026-10-18 | Issue #6 | Publish concurrency/`skip-existing`; governance env-injection + forbidden-terms; `make ci`; sample strictness matrix; flat-CLI principle. |
 | 2026-10-18 | Idempotency gaps | `file_lock` on marketplace upserts; export checkpoint + `--fresh`; pipeline exit-2 resume Fix via `--from`. |
 | 2026-10-18 | Recipe | Added `docs/recipes/how-to-commands.md` — command ↔ engine map. |
 | 2026-10-18 | Inspect | Added `bbsctl inspect` → NVIDIA SkillSpector. `bbsctl scan` is legacy (`bbsctl-audit` only). |
