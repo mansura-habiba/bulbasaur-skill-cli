@@ -1,0 +1,105 @@
+{
+  "name": "BbsctlSkillEval",
+  "description": "ChatInput → bbsctl skill eval → Pass/Fail ChatOutput",
+  "data": {
+    "nodes": [
+      {
+        "id": "ChatInput-1",
+        "type": "genericNode",
+        "position": { "x": 0, "y": 200 },
+        "data": {
+          "type": "ChatInput",
+          "node": {
+            "template": {
+              "_type": "Component",
+              "input_value": {
+                "type": "str",
+                "value": "compile fixtures/example-skill"
+              }
+            },
+            "display_name": "Chat Input",
+            "outputs": [{ "name": "message", "types": ["Message"] }]
+          }
+        }
+      },
+      {
+        "id": "BbsctlSkillEval-1",
+        "type": "genericNode",
+        "position": { "x": 320, "y": 200 },
+        "data": {
+          "type": "BbsctlSkillEval",
+          "node": {
+            "template": {
+              "_type": "Component",
+              "skill_dir": {
+                "type": "str",
+                "value": "/app/fixtures/example-skill"
+              },
+              "stage": {
+                "type": "str",
+                "value": "compile"
+              },
+              "timeout_sec": {
+                "type": "float",
+                "value": 120
+              }
+            },
+            "display_name": "bbsctl Skill Eval",
+            "outputs": [
+              { "name": "pass_result", "types": ["Message"] },
+              { "name": "fail_result", "types": ["Message"] }
+            ]
+          }
+        }
+      },
+      {
+        "id": "ChatOutput-Pass",
+        "type": "genericNode",
+        "position": { "x": 640, "y": 80 },
+        "data": {
+          "type": "ChatOutput",
+          "node": {
+            "template": { "_type": "Component" },
+            "display_name": "Pass Chat Output",
+            "outputs": []
+          }
+        }
+      },
+      {
+        "id": "ChatOutput-Fail",
+        "type": "genericNode",
+        "position": { "x": 640, "y": 320 },
+        "data": {
+          "type": "ChatOutput",
+          "node": {
+            "template": { "_type": "Component" },
+            "display_name": "Fail Chat Output",
+            "outputs": []
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "ChatInput-1",
+        "sourceHandle": "message",
+        "target": "BbsctlSkillEval-1",
+        "targetHandle": "skill_dir",
+        "data": { "note": "optional prompt wiring; skill_dir is also a component field" }
+      },
+      {
+        "source": "BbsctlSkillEval-1",
+        "sourceHandle": "pass_result",
+        "target": "ChatOutput-Pass",
+        "targetHandle": "input_value"
+      },
+      {
+        "source": "BbsctlSkillEval-1",
+        "sourceHandle": "fail_result",
+        "target": "ChatOutput-Fail",
+        "targetHandle": "input_value"
+      }
+    ]
+  },
+  "is_component": false
+}

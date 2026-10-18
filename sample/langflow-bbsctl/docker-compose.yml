@@ -1,0 +1,14 @@
+services:
+  langflow:
+    image: bbsctl-langflow-sample:local
+    build: .
+    ports:
+      - "7860:7860"
+    environment:
+      LANGFLOW_COMPONENTS_PATH: /app/components
+      LANGFLOW_AUTO_LOGIN: "true"
+    volumes:
+      # Live-edit components without rebuild (optional)
+      - ./components:/app/components:ro
+      - ./flows:/app/flows:ro
+      - ./fixtures:/app/fixtures:ro

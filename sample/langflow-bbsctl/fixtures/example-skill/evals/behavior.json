@@ -1,0 +1,15 @@
+{
+  "skill_name": "example-skill",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Load the example skill",
+      "expected_output": "A short confirmation that the example skill loaded.",
+      "files": [],
+      "assertions": [
+        "The reply confirms the example skill",
+        "The reply is short"
+      ]
+    }
+  ]
+}
