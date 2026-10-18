@@ -1,4 +1,4 @@
-"""Tests for `bbsctl marketplace export` — bulk OIC catalog conversion.
+"""Tests for `bbsctl marketplace export` — bulk catalog conversion.
 
 Covers:
   - dry-run reports correct counts without writing files
@@ -66,7 +66,7 @@ _DEPRECATED_MANIFEST = (
 
 
 def _make_catalog(tmp_path: Path) -> Path:
-    """Build a small OIC-style catalog with mixed artifact types."""
+    """Build a small catalog-style tree with mixed artifact types."""
     catalog = tmp_path / "artifacts"
     # publishable skill
     skill_dir = catalog / "mcsp" / "sre" / "cluster-debug"
@@ -226,3 +226,86 @@ def test_publish_with_manifest_uses_manifest_fields(tmp_path: Path, capsys) -> N
     pdata = json.loads(plugin_json_path.read_text(encoding="utf-8"))
     assert pdata["version"] == "2.0.0"
     assert pdata["author"]["name"] == "test-owner"
+
+
+def test_export_resumes_from_checkpoint(tmp_path: Path, capsys) -> None:
+    catalog = _make_catalog(tmp_path)
+    mp_dir = tmp_path / "marketplace"
+    mp = GitMarketplace.init(mp_dir, name="test-mp")
+
+    # Simulate crash after first publishable skill was exported.
+    checkpoint = mp_dir / ".bbsctl-export-checkpoint.json"
+    checkpoint.write_text(
+        json.dumps(
+            {
+                "catalog": str(catalog.resolve()),
+                "done": ["mcsp/sre/cluster-debug/manifest.yml"],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    # Pre-publish that skill so the marketplace already has it.
+    skill_dir = catalog / "mcsp" / "sre" / "cluster-debug"
+    mp.publish_plugin(
+        plugin_name="cluster-debug-plugin",
+        skill_name="cluster-debug",
+        skill_dir=skill_dir,
+    )
+
+    rc = main(
+        [
+            "marketplace",
+            "export",
+            "--catalog",
+            str(catalog),
+            "--marketplace",
+            str(mp_dir),
+        ]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "resumed: skipped 1 already exported" in out
+    assert "published : 1" in out  # only my-mcp
+
+    plugins = {p.name for p in mp.list_plugins()}
+    assert plugins == {"cluster-debug-plugin", "my-mcp-plugin"}
+    assert not checkpoint.exists()  # cleared on full success
+
+
+def test_export_fresh_ignores_checkpoint(tmp_path: Path, capsys) -> None:
+    catalog = _make_catalog(tmp_path)
+    mp_dir = tmp_path / "marketplace"
+    mp = GitMarketplace.init(mp_dir, name="test-mp")
+    checkpoint = mp_dir / ".bbsctl-export-checkpoint.json"
+    checkpoint.write_text(
+        json.dumps(
+            {
+                "catalog": str(catalog.resolve()),
+                "done": [
+                    "mcsp/sre/cluster-debug/manifest.yml",
+                    "mcsp/sre/my-mcp/manifest.yml",
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main(
+        [
+            "marketplace",
+            "export",
+            "--catalog",
+            str(catalog),
+            "--marketplace",
+            str(mp_dir),
+            "--fresh",
+        ]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "checkpoint cleared (--fresh)" in out
+    assert "published : 2" in out
+    assert len(mp.list_plugins()) == 2
+    assert not checkpoint.exists()

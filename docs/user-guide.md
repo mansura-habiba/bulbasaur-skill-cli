@@ -865,6 +865,5 @@ The strictness ladder enforces a "no vapor options" rule: `--strictness org` won
 - [`docs/evaluation.md`](evaluation.md) — eval module deep dive
 - [`docs/permissions.md`](permissions.md) — permissions.yaml schema and runtime hooks
 - [`docs/strictness-levels.md`](strictness-levels.md) — the strictness ladder
-- [`docs/ide-integration.md`](ide-integration.md) — MCP + LSP + per-IDE design
+- [`docs/lifecycle.md`](lifecycle.md) — pipeline stages inside `bbsctl`
 - [`docs/bbsctl-roadmap.md`](bbsctl-roadmap.md) — what's wired vs. roadmap
-- [`docs/skill-lifecycle-framework-whitepaper.md`](skill-lifecycle-framework-whitepaper.md) — the broader framework

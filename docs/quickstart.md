@@ -122,10 +122,11 @@ All of that exists. None of it is required at `local` strictness. The marketplac
 | If you want to... | Read |
 |---|---|
 | Understand the strictness ladder | [strictness-levels.md](strictness-levels.md) |
-| Share a skill with your team | [recipes/share-with-team.md](recipes/share-with-team.md) *(Phase 2)* |
-| Ship a skill to production | [recipes/ship-to-org.md](recipes/ship-to-org.md) *(Phase 3)* |
+| Run the lifecycle pipeline | [recipes/how-to-run-pipeline.md](recipes/how-to-run-pipeline.md) |
+| Publish a skill (local / team  / catalog) | [recipes/how-to-publish.md](recipes/how-to-publish.md) |
+| What each command does (`inspect` → SkillSpector, …) | [recipes/how-to-commands.md](recipes/how-to-commands.md) |
 | Diagnose an error | [troubleshooting.md](troubleshooting.md) |
-| Learn the skill design patterns | [design-patterns.md](design-patterns.md) *(Phase 2)* |
+| See what's shipped vs planned | [bbsctl-roadmap.md](bbsctl-roadmap.md) |
 
 ## The five-minute promise
 

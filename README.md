@@ -44,6 +44,158 @@ uv run bbsctl run
 
 That's the five-minute promise. From here you can climb the strictness ladder, add evals, publish to a marketplace, or fetch external skills.
 
+## How to use it
+
+One binary: **`bbsctl`**. The lifecycle lives inside it (no second CLI).
+
+You can run **each stage on its own**, or walk them all with **`bbsctl pipeline`**.
+
+### Independent stage commands
+
+| Stage | Command | Notes |
+|---|---|---|
+| Scaffold | `bbsctl new <name>` | Create a skill from the agentskills.io spec |
+| Compile | `bbsctl compile` | Spec + compile report → `dist/compile-report.json` |
+| Inspect | `bbsctl inspect` | NVIDIA [SkillSpector](https://github.com/NVIDIA/SkillSpector) → `dist/scan.sarif` |
+| Scan | `bbsctl scan` | Legacy lightweight scan (`bbsctl-audit`) |
+| Eval | `bbsctl eval` | Behavioural corpus under `evals/` → `dist/eval.json` |
+| Mellea certify | `bbsctl mellea-certify` | [Mellea](https://github.com/generative-computing/mellea-skills-compiler) compile → certify |
+| Certify | `bbsctl certify` | Config-driven (`mellea` or `none`); prefer `mellea-certify` |
+| Approve | `bbsctl approve --by <id>` | Human sign-off on the evidence manifest |
+| Publish | `bbsctl publish` | Package for consumers (local Claude, team marketplace, or artifact catalog) |
+| Discover | `bbsctl discover` | Emit `ard.json` for Agentic Resource Discovery |
+| Verify | `bbsctl verify` | Recompute digests; check approval still covers the skill |
+| Doctor | `bbsctl doctor` | Which engines are installed / pinned |
+
+### Publish vs discover
+
+Two top-level verbs. That is enough.
+
+| Verb | Job |
+|---|---|
+| `bbsctl publish` | Package / register so people can *install* the skill |
+| `bbsctl discover` | Emit ARD so agents can *find* the skill before invoke |
+
+`bbsctl marketplace` stays admin-only (`init` / `list` / `export`).
+
+```bash
+# Package — local Claude marketplace
+bbsctl publish
+
+# Package — team Git marketplace
+bbsctl marketplace init ./my-team-marketplace
+bbsctl publish --marketplace ./my-team-marketplace
+
+# Package — catalog curation in-place (no file copy)
+bbsctl publish artifacts/<squad>/<team>/<slug> --inplace
+# → .claude-plugin/marketplace.json + marketplace-entry.json
+# Consumers:
+#   /plugin marketplace add <path-or-git-url-of-curation-repo>
+#   /plugin install <slug>@<marketplace-name>
+
+# Discover — ARD emit (optional; host at /.well-known/ard.json)
+bbsctl discover ./my-skill --domain example.com -o ard.json
+bbsctl discover ./artifacts --catalog --domain example.com
+bbsctl publish artifacts/.../slug --inplace --ard   # package + discover in one shot
+```
+
+### Orchestrator (all stages)
+
+| You want to… | Run |
+|---|---|
+| Walk the full lifecycle (fail fast) | `bbsctl pipeline [skill-dir]` |
+| Fast pre-commit check only | `bbsctl pipeline --fast` |
+| Stop after a stage | `bbsctl pipeline --to compile` |
+| Start from a stage | `bbsctl pipeline --from scan` |
+
+Exit codes for `pipeline` and stage commands: `0` ok · `1` stage failed · `2` engine/framework error · `3` waiting on approve.
+
+### Author a skill end-to-end
+
+**Option A — one stage at a time**
+
+```bash
+bbsctl init --strictness team
+bbsctl new my-skill
+cd my-skill
+# Edit SKILL.md
+bbsctl compile
+bbsctl inspect          # NVIDIA SkillSpector (or legacy: bbsctl scan)
+bbsctl eval
+bbsctl mellea-certify   # optional; needs mellea-skills on PATH
+bbsctl approve --by alice
+bbsctl verify
+bbsctl publish --marketplace ../my-team-marketplace
+```
+
+**Option B — orchestrator**
+
+```bash
+bbsctl pipeline --strictness team
+# At org+: if exit 3, then:
+bbsctl approve --by alice
+bbsctl verify
+bbsctl publish --marketplace ../my-team-marketplace
+```
+
+### Pre-commit (fast path)
+
+```bash
+# Compile + validate --fast only. No network, no LLM. Target < 5 s.
+bbsctl pipeline --fast --to compile
+# Same as: bbsctl compile && bbsctl validate --fast
+```
+
+### Configure engines (optional)
+
+In your project's `pyproject.toml`:
+
+```toml
+[tool.bbsctl]
+default_strictness = "team"
+
+[tool.bbsctl.engines]
+scan = "bbsctl-audit"   # pipeline scan stage (legacy). Prefer `bbsctl inspect` for SkillSpector.
+certify = "none"        # or "mellea" if installed
+```
+
+Install SkillSpector for `bbsctl inspect` (Python >= 3.12):
+
+```bash
+uv sync --group engines
+# or:
+uv tool install "git+https://github.com/NVIDIA/SkillSpector@cf5cac7ba5c756a6e0ebf52dc9763f49422f889f"
+bbsctl inspect
+```
+
+Install Mellea for `bbsctl mellea-certify`:
+
+```bash
+uv sync --group engines
+# or:
+uv tool install "git+https://github.com/generative-computing/mellea-skills-compiler@1538a0870ab9868ff5252c96722ba3827a4345ab"
+bbsctl mellea-certify
+```
+
+
+Evidence lands under `.bbsctl/evidence/<skill>-<hash>/` (manifest, SARIF, eval JSON, approval, `bundle.lock`).
+
+More detail: [`docs/lifecycle.md`](docs/lifecycle.md).
+
+### CI (same pattern as [next_move](https://github.com/mansura-habiba/next_move))
+
+Copy [`.github/workflows/bbsctl-pipeline.yml`](.github/workflows/bbsctl-pipeline.yml), or call the composite action:
+
+```yaml
+- uses: ./.github/actions/bbsctl-pipeline
+  with:
+    path: sample/pr-review-helper
+    strictness: team
+    stages: compile
+```
+
+That action clones/installs `bbsctl` (or uses the checked-out tree in this repo), runs `bbsctl pipeline`, and uploads the evidence bundle as an artifact — the same shape as next_move's Bulbasaur verification workflow.
+
 ## The two lifecycles
 
 ```
@@ -296,19 +448,23 @@ The `Fix` line is always copy-pasteable. The audit-enforced rule is that 90%+ of
 
 ## Documentation
 
+- [`docs/quickstart.md`](docs/quickstart.md) — five-minute path
+- [`docs/lifecycle.md`](docs/lifecycle.md) — pipeline stages inside `bbsctl`
+- [`docs/recipes/how-to-commands.md`](docs/recipes/how-to-commands.md) — what each command does (`inspect` → NVIDIA SkillSpector)
+- [`docs/recipes/how-to-run-pipeline.md`](docs/recipes/how-to-run-pipeline.md) — run the lifecycle
+- [`docs/recipes/how-to-publish.md`](docs/recipes/how-to-publish.md) — publish / discover
 - [`docs/demo.md`](docs/demo.md) — 8-minute live demo walkthrough
-- [`docs/strictness-levels.md`](docs/strictness-levels.md) — the strictness axis explained
-- [`docs/evaluation.md`](docs/evaluation.md) — the eval corpus convention and `bbsctl eval`
-- [`docs/spec-guidelines.md`](docs/spec-guidelines.md) — the spec, aligned with [agentskills.io](https://agentskills.io)
-- [`docs/design-patterns.md`](docs/design-patterns.md) — Strategy, Factory, Adapter, Decorator patterns
-- [`docs/best-practices.md`](docs/best-practices.md) — authoring guidance
+- [`docs/user-guide.md`](docs/user-guide.md) — full command reference
+- [`docs/strictness-levels.md`](docs/strictness-levels.md) — the strictness axis
+- [`docs/evaluation.md`](docs/evaluation.md) — eval corpus + `bbsctl eval`
+- [`docs/permissions.md`](docs/permissions.md) — `permissions.yaml`
+- [`docs/configuration.md`](docs/configuration.md) — config cascade
 - [`docs/troubleshooting.md`](docs/troubleshooting.md) — error → fix table
-
-
+- [`docs/bbsctl-roadmap.md`](docs/bbsctl-roadmap.md) — shipped vs planned
 
 ## Architecture
 
-The framework is built on three reusable patterns (per [`docs/design-patterns.md`](docs/design-patterns.md)):
+The framework is built on three reusable patterns:
 
 - **Strategy + Factory** — `CompileStep`, `Validator`, `Evaluator`, `AgentRuntime`, `PublishTarget`. Each is an interface; concrete implementations register through a factory. Adding a new validator or runtime is one class plus one registration line.
 - **Adapter** — for cross-framework runtimes (Claude Agent SDK, MCP, LangGraph, CrewAI). Each adapter normalizes a foreign runtime into the `AgentRuntime` interface so `bbsctl run` and `bbsctl eval` don't care which one is in use.
@@ -355,7 +511,7 @@ make clean     # Remove build artifacts
 
 Two things make a PR easier to merge:
 
-1. **A friction-audit note.** If your change touches the CLI surface or any error message, walk the affected flow as a fresh developer and note where you hesitated. The friction-audit protocol ([`docs/friction-audit.md`](docs/friction-audit.md)) is the template.
+1. **A friction note in the PR.** If your change touches the CLI surface or any error message, walk the affected flow as a fresh developer and note where you hesitated.
 2. **No vapor options.** If you add an argparse `choices=` value, the implementation behind it must work end-to-end. The vapor-options lint test walks the support registry and will fail otherwise.
 
 ## License

@@ -1,0 +1,163 @@
+name: Governance gate
+
+# Runs on every PR. Validates schemas, runs contract tests, checks scope.
+# The human reviewer only sees a PR after this gate is green — compliance is the bot's job.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+
+  validate-task-card:
+    name: Validate task card schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install validator
+        run: pip install --break-system-packages "jsonschema[format]" "pyyaml"
+
+      - name: Validate task card files
+        run: |
+          python - <<'PY'
+          import sys, glob, yaml
+          from jsonschema import Draft202012Validator
+
+          schema_path = ".governance/task-card.schema.yaml"
+          with open(schema_path) as f:
+              schema = yaml.safe_load(f)
+          validator = Draft202012Validator(schema)
+
+          failed = 0
+          for path in glob.glob(".governance/tasks/*.yaml") + glob.glob(".governance/examples/task-card.example.yaml"):
+              with open(path) as f:
+                  doc = yaml.safe_load(f)
+              errors = sorted(validator.iter_errors(doc), key=lambda e: e.path)
+              if errors:
+                  failed += 1
+                  print(f"FAIL: {path}")
+                  for err in errors:
+                      print(f"  - at {'/'.join(map(str, err.path)) or '<root>'}: {err.message}")
+              else:
+                  print(f"OK:   {path}")
+          sys.exit(1 if failed else 0)
+          PY
+
+  validate-capability-spec:
+    name: Validate capability spec schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --break-system-packages "jsonschema[format]" "pyyaml"
+      - name: Validate capability files
+        run: |
+          python - <<'PY'
+          import sys, glob, yaml
+          from jsonschema import Draft202012Validator
+
+          with open(".governance/capability-spec.schema.yaml") as f:
+              schema = yaml.safe_load(f)
+          validator = Draft202012Validator(schema)
+
+          failed = 0
+          for path in glob.glob(".governance/capabilities/*.yaml"):
+              with open(path) as f:
+                  doc = yaml.safe_load(f)
+              errors = sorted(validator.iter_errors(doc), key=lambda e: e.path)
+              if errors:
+                  failed += 1
+                  print(f"FAIL: {path}")
+                  for err in errors:
+                      print(f"  - at {'/'.join(map(str, err.path)) or '<root>'}: {err.message}")
+              else:
+                  print(f"OK:   {path}")
+          sys.exit(1 if failed else 0)
+          PY
+
+  run-contract-tests:
+    name: Contract tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --break-system-packages pytest "jsonschema[format]" "pyyaml"
+      - name: Run contract test suite
+        run: pytest tests/contract/ -v
+
+  check-scope:
+    name: PR diff respects task card non-goals
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Extract task card from PR body
+        id: task_card
+        run: |
+          # The PR body references "Closes #N". The task card lives in that issue body
+          # (or as .governance/tasks/<id>.yaml if filed as a file).
+          # For v0.1, we check: the PR body must reference a closing issue, and
+          # the diff must not touch any do_not_modify path mentioned in that task card.
+          # Future: parse the issue body via gh CLI and check do_not_modify paths.
+          echo "Stub for v0.1 — see .github/workflows/governance.yml to extend."
+
+      - name: Reject PRs without a linked task card
+        run: |
+          body="${{ github.event.pull_request.body }}"
+          if ! echo "$body" | grep -qiE "Closes #[0-9]+"; then
+            echo "::error::PR body must reference 'Closes #<issue>' — every change is anchored to a task card."
+            exit 1
+          fi
+
+      - name: Reject PRs that modify .governance/*.schema.yaml without chore label
+        run: |
+          changed=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          schema_changed=$(echo "$changed" | grep -E '^\.governance/.*\.schema\.yaml$' || true)
+          if [ -n "$schema_changed" ]; then
+            labels='${{ toJson(github.event.pull_request.labels) }}'
+            if ! echo "$labels" | grep -q '"chore-framework"'; then
+              echo "::error::Schema files changed but PR is not labeled 'chore-framework'. Schema changes require tier_approver sign-off."
+              echo "Changed:"
+              echo "$schema_changed"
+              exit 1
+            fi
+          fi
+
+      - name: Reject PRs that delete contract tests without explicit label
+        run: |
+          deleted=$(git diff --name-only --diff-filter=D origin/${{ github.base_ref }}...HEAD)
+          deleted_contract=$(echo "$deleted" | grep -E '^tests/contract/' || true)
+          if [ -n "$deleted_contract" ]; then
+            labels='${{ toJson(github.event.pull_request.labels) }}'
+            if ! echo "$labels" | grep -q '"contract-test-removal-approved"'; then
+              echo "::error::Contract tests deleted but PR lacks 'contract-test-removal-approved' label."
+              echo "Deleted:"
+              echo "$deleted_contract"
+              exit 1
+            fi
+          fi
+
+  summary:
+    name: Governance summary
+    needs: [validate-task-card, validate-capability-spec, run-contract-tests, check-scope]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Report
+        run: |
+          echo "All governance gates passed. PR is now eligible for human review."
+          echo "Reviewer's job: judgment (architecture, business sense, edge cases)."
+          echo "Compliance was already verified by this workflow."

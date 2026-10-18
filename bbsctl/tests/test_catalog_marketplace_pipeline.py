@@ -1,4 +1,4 @@
-"""Tests for the OIC ManifestConverter and plugin commands."""
+"""Tests for the catalog ManifestConverter and plugin commands."""
 
 from __future__ import annotations
 

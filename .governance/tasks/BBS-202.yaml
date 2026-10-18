@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../task-card.schema.yaml
+id: BBS-202
+title: "Harden PyPI release workflow for bbsctl"
+type: chore
+tier: team
+
+links:
+  parent_capability: .governance/capabilities/lifecycle.yaml
+  related_issues: []
+  depends_on:
+    - BBS-200
+  design_docs:
+    - .github/workflows/python-publish.yml
+
+goal:
+  one_liner: "After this ships, tagging a release builds bbsctl and publishes to PyPI via Trusted Publishing."
+  bigger_picture: |
+    The package lived under bbsctl/ with a parent-path readme that hatchling rejects.
+    Consumers need a reliable GitHub Action that builds, tests, smoke-imports the wheel,
+    and publishes with OIDC (no long-lived PyPI token in secrets).
+  done_looks_like: |
+    `python -m build` works from bbsctl/; workflow triggers on release / v* tags /
+    workflow_dispatch; dry-run is default for manual runs; Trusted Publishing documented.
+
+scope:
+  in_scope:
+    - "bbsctl/README.md + pyproject readme path fix"
+    - ".github/workflows/python-publish.yml (build, test, smoke, publish)"
+    - "Remove readme sed hack from bbsctl-pipeline composite action"
+  non_goals:
+    - "Do not bump package version in this chore (keep 0.1.1)"
+    - "Do not configure the PyPI Trusted Publisher UI (manual one-time)"
+    - "Do not publish from this PR"
+
+acceptance:
+  spec: .governance/acceptance/skill-validation.acceptance.yaml
+  case_ids: []
+  contract_tests: []
+  manual_checks:
+    - "Local: cd bbsctl && python -m build succeeds"
+    - "After merge: configure PyPI Trusted Publisher for workflow python-publish.yml / env pypi"
+
+non_functional:
+  performance: "n/a"
+  compatibility: "Base wheel stays free of git URL deps (engines group only)"
+
+ai_context:
+  required_reading:
+    - .github/workflows/python-publish.yml
+    - bbsctl/pyproject.toml
+  search_for_duplicates: true
+  do_not_modify: []
+  preferred_patterns:
+    - "Trusted Publishing via pypa/gh-action-pypi-publish + id-token: write"
+
+ownership:
+  author: "@mansura"
+  reviewer: "@mansura"
+
+estimate:
+  points: 2
+  budget_hours: 3
+
+status: done

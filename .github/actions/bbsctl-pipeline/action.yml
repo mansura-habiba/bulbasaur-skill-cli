@@ -1,0 +1,99 @@
+name: bbsctl-pipeline
+description: >
+  Run the bbsctl pipeline against a skill directory.
+  Pattern matches mansura-habiba/next_move Bulbasaur verification:
+  install bbsctl → pipeline → upload evidence.
+
+inputs:
+  path:
+    description: Path to the skill directory (must contain SKILL.md)
+    required: true
+  strictness:
+    description: local | team | org | regulated
+    required: false
+    default: team
+  stages:
+    description: >
+      Optional --to stage (compile, scan, eval, certify, approve, publish).
+      Empty = full plan for the strictness. Use "compile" for the fast gate.
+    required: false
+    default: ""
+  fast:
+    description: If "true", run bbsctl pipeline --fast (compile + validate --fast)
+    required: false
+    default: "false"
+  python-version:
+    description: Python version for the runner
+    required: false
+    default: "3.12"
+  install-from:
+    description: >
+      "workspace" = install ./bbsctl from this checkout (this repo).
+      "clone" = clone mansura-habiba/bulbasaur-skill-cli (consumer repos).
+    required: false
+    default: workspace
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install bbsctl (workspace)
+      if: inputs.install-from == 'workspace'
+      shell: bash
+      run: |
+        set -euo pipefail
+        python -m pip install --upgrade pip
+        python -m pip install ./bbsctl
+        bbsctl --version
+
+    - name: Install bbsctl (clone public CLI)
+      if: inputs.install-from == 'clone'
+      shell: bash
+      run: |
+        set -euo pipefail
+        git clone --depth 1 https://github.com/mansura-habiba/bulbasaur-skill-cli.git /tmp/bulbasaur
+        python -m pip install --upgrade pip
+        python -m pip install /tmp/bulbasaur/bbsctl
+        bbsctl --version
+
+    - name: Doctor
+      shell: bash
+      run: bbsctl doctor
+
+    - name: Pipeline
+      id: pipeline
+      shell: bash
+      run: |
+        set -euo pipefail
+        SKILL="${{ inputs.path }}"
+        ARGS=(pipeline "$SKILL" --strictness "${{ inputs.strictness }}" --no-cache --output json)
+        if [ "${{ inputs.fast }}" = "true" ]; then
+          ARGS+=(--fast)
+        elif [ -n "${{ inputs.stages }}" ]; then
+          ARGS+=(--to "${{ inputs.stages }}")
+        fi
+        set +e
+        bbsctl "${ARGS[@]}"
+        code=$?
+        set -e
+        echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+        # 3 = waiting on human approve — treat as soft pending in CI
+        if [ "$code" -eq 3 ]; then
+          echo "::warning::pipeline waiting on bbsctl approve --by <id>"
+          exit 0
+        fi
+        exit "$code"
+
+    - name: Upload evidence bundle
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: bbsctl-pipeline-evidence-${{ github.run_id }}
+        path: |
+          ${{ inputs.path }}/.bbsctl/evidence/
+          ${{ inputs.path }}/dist/
+        if-no-files-found: warn

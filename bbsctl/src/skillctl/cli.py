@@ -24,15 +24,24 @@ import traceback
 
 from skillctl import __version__
 from skillctl.commands import (
+    approve_cmd,
     audit_cmd,
+    certify_cmd,
     classify_cmd,
+    discover_cmd,
+    doctor_cmd,
     eval_cmd,
     gateway_cmd,
+    inspect_cmd,
     marketplace_cmd,
+    mellea_certify_cmd,
+    pipeline_cmd,
     plugin_cmd,
     policy_cmd,
     risk_cmd,
+    scan_cmd,
     strictness_cmd,
+    verify_cmd,
 )
 from skillctl.dotenv import load_dotenv
 from skillctl.commands import compile as compile_cmd
@@ -66,13 +75,24 @@ _COMMANDS = [
     classify_cmd,
     gateway_cmd,
     # Distribution
+    publish_cmd,
+    discover_cmd,
     marketplace_cmd,
     plugin_cmd,
-    publish_cmd,
     install_cmd,
     # Trust & external skills
     fetch_cmd,
     audit_cmd,
+    # Lifecycle — each stage is also a standalone command;
+    # `pipeline` walks them in order.
+    inspect_cmd,
+    scan_cmd,
+    mellea_certify_cmd,
+    certify_cmd,
+    doctor_cmd,
+    pipeline_cmd,
+    approve_cmd,
+    verify_cmd,
 ]
 
 

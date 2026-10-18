@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../task-card.schema.yaml
+id: BBS-200
+title: "Implement skillops orchestrator (M1–M4)"
+type: feature
+tier: team
+
+links:
+  parent_capability: .governance/capabilities/lifecycle.yaml
+  related_issues: []
+  depends_on: []
+  design_docs:
+    - docs/lifecycle.md
+    - docs/strictness-levels.md
+
+goal:
+  one_liner: "After this ships, `bbsctl pipeline` walks the skill lifecycle with swappable engines and an evidence bundle."
+  bigger_picture: |
+    bbsctl is the mature per-stage CLI. Teams still need one process that enforces order,
+    caches reproducible results, and packages SARIF + certification + human approval.
+    lifecycle is that seam — added beside bbsctl, not replacing it.
+  done_looks_like: |
+    lifecycle is installed as a second console script; doctor reports engines; run fail-fast
+    works on sample/pr-review-helper at team with scan optional; stub-engine tests pass;
+    wheel METADATA has no direct URL deps; pre-commit hook and composite action exist.
+
+scope:
+  in_scope:
+    - "skillctl.lifecycle package per docs/lifecycle.md"
+    - "PEP 735 engines dependency group + uv sources pins"
+    - "Scan/certify adapters via subprocess; bbsctl stages in-process"
+    - "Evidence bundle + approve + verify + publish gate"
+    - "pre-commit hook, .github/actions/bbsctl-pipeline, docs/lifecycle.md, make try-pipeline"
+  non_goals:
+    - "Do not change bbsctl command behaviour or rename any bbsctl command"
+    - "Do not implement Sigstore signing (M5 / roadmap S4) beyond the existing placeholder"
+    - "Do not raise requires-python to 3.12 in this task"
+
+acceptance:
+  spec: .governance/acceptance/skill-validation.acceptance.yaml
+  case_ids: []
+  contract_tests:
+    - "bbsctl/tests/test_skillops_pipeline.py::test_run_fail_fast_on_stage_failure"
+    - "bbsctl/tests/test_error_contract.py::test_framework_error_fix_coverage"
+  manual_checks:
+    - "bbsctl doctor prints Fix lines when engines are missing"
+    - "After gh auth refresh, open public GitHub issue and attach to projects/3"
+
+non_functional:
+  performance: "pre-commit path --to compile --fast targets < 5 s"
+  compatibility: "Base wheel stays stdlib + ruamel.yaml; engines via dependency group only"
+
+ai_context:
+  required_reading:
+    - docs/lifecycle.md
+    - .governance/philosophy.md
+    - .governance/capabilities/lifecycle.yaml
+    - bbsctl/src/skillctl/cli.py
+    - bbsctl/src/skillctl/messaging/__init__.py
+    - bbsctl/src/skillctl/eval/reproducibility.py
+    - bbsctl/src/skillctl/marketplace/bundle.py
+  search_for_duplicates: true
+  do_not_modify:
+    - bbsctl/src/skillctl/cli.py
+    - bbsctl/src/skillctl/commands
+  preferred_patterns:
+    - "argparse CLI with same top-level exception wrapper as bbsctl"
+    - "Strategy+Factory for engines"
+    - "FrameworkError Fix lines for missing engines"
+
+ownership:
+  author: "@mansura"
+  reviewer: "@mansura"
+
+estimate:
+  points: 8
+  budget_hours: 24
+
+status: in_progress

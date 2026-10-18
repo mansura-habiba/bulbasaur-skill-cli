@@ -1,0 +1,53 @@
+# bbsctl lifecycle CI — same install pattern as
+# https://github.com/mansura-habiba/next_move/.github/workflows/bulbasaur-validation.yml
+name: bbsctl-pipeline
+
+on:
+  push:
+    branches: [main, feat/skillops-orchestrator]
+    paths:
+      - "bbsctl/**"
+      - "sample/**"
+      - ".github/actions/bbsctl-pipeline/**"
+      - ".github/workflows/bbsctl-pipeline.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "bbsctl/**"
+      - "sample/**"
+      - ".github/actions/bbsctl-pipeline/**"
+      - ".github/workflows/bbsctl-pipeline.yml"
+  workflow_dispatch:
+
+jobs:
+  pipeline-sample:
+    name: bbsctl pipeline on sample skills
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        skill:
+          - sample/pr-review-helper
+          - sample/hello-skill
+          - sample/log-analyzer
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/bbsctl-pipeline
+        with:
+          path: ${{ matrix.skill }}
+          strictness: team
+          stages: compile
+          install-from: workspace
+
+  pipeline-fast:
+    name: pre-commit path (--fast)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/bbsctl-pipeline
+        with:
+          path: sample/pr-review-helper
+          strictness: local
+          fast: "true"
+          install-from: workspace

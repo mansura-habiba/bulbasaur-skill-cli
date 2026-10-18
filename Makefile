@@ -141,6 +141,22 @@ test:
 lint:
 	cd $(BBSCTL_DIR) && uv run ruff check src/skillctl/
 
+# ── skillops (bbsctl pipeline) ───────────────────────────────────────────────
+
+.PHONY: try-pipeline
+try-pipeline: install
+	@echo ""
+	@echo "── bbsctl doctor ──"
+	$(BBSCTL) doctor
+	@echo ""
+	@echo "── bbsctl pipeline --fast on sample/pr-review-helper ──"
+	$(BBSCTL) pipeline sample/pr-review-helper --fast --strictness local --no-cache
+	@echo ""
+	@echo "── bbsctl approve + verify ──"
+	$(BBSCTL) approve sample/pr-review-helper --by try-pipeline
+	$(BBSCTL) verify sample/pr-review-helper
+	@echo "==> try-pipeline done."
+
 # ── Clean ────────────────────────────────────────────────────────────────────
 
 .PHONY: clean
