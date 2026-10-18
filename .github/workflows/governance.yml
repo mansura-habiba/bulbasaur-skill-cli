@@ -160,22 +160,44 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
-          terms_file=".governance/forbidden-terms.txt"
-          if [ ! -f "$terms_file" ]; then
-            echo "No forbidden-terms list; skipping."
-            exit 0
-          fi
-          # Only scan added lines in the PR diff (ignore historical mentions).
-          added=$(git diff -U0 "origin/${BASE_REF}...HEAD" | grep -E '^\+' | grep -vE '^\+\+\+' || true)
-          failed=0
-          while IFS= read -r term || [ -n "$term" ]; do
-            [[ -z "$term" || "$term" == \#* ]] && continue
-            if printf '%s' "$added" | grep -Fqi -- "$term"; then
-              echo "::error::Forbidden term '$term' appears in added lines. See $terms_file."
-              failed=1
-            fi
-          done < "$terms_file"
-          exit "$failed"
+          python - <<'PY'
+          import re, subprocess, sys
+          from pathlib import Path
+
+          terms_path = Path(".governance/forbidden-terms.txt")
+          if not terms_path.is_file():
+              print("No forbidden-terms list; skipping.")
+              sys.exit(0)
+
+          terms = [
+              t.strip()
+              for t in terms_path.read_text(encoding="utf-8").splitlines()
+              if t.strip() and not t.strip().startswith("#")
+          ]
+          base = f"origin/{__import__('os').environ['BASE_REF']}"
+          diff = subprocess.check_output(
+              [
+                  "git", "diff", "-U0", f"{base}...HEAD", "--", ".",
+                  ":(exclude).governance/forbidden-terms.txt",
+              ],
+              text=True,
+          )
+          added = "\n".join(
+              line[1:] for line in diff.splitlines()
+              if line.startswith("+") and not line.startswith("+++")
+          )
+          failed = 0
+          for term in terms:
+              # Word-ish boundary: not alphanumeric/_ on either side (allows --oic).
+              pat = re.compile(
+                  rf"(?<![A-Za-z0-9_]){re.escape(term)}(?![A-Za-z0-9_])",
+                  re.IGNORECASE,
+              )
+              if pat.search(added):
+                  print(f"::error::Forbidden term '{term}' appears in added lines. See {terms_path}.")
+                  failed = 1
+          sys.exit(failed)
+          PY
 
   summary:
     name: Governance summary
