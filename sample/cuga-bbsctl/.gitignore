@@ -1,0 +1,4 @@
+.venv/
+fixtures/**/dist/
+__pycache__/
+.pytest_cache/

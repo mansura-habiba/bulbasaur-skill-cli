@@ -1,0 +1,15 @@
+{
+  "skill_name": "demo-skill",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Load the demo skill",
+      "expected_output": "One short sentence confirming the demo skill is active.",
+      "files": [],
+      "assertions": [
+        "The reply mentions the demo skill",
+        "The reply is a single short sentence"
+      ]
+    }
+  ]
+}
