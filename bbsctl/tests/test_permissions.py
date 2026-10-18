@@ -176,6 +176,50 @@ def test_merge_deny_wins_on_defaults():
     assert merged.default_for(RuleGroup.COMMANDS) == DecisionType.DENY
 
 
+def test_merge_empty_path_lists_stay_deny_all():
+    empty = Permissions(filesystem_read_paths=[], filesystem_write_paths=[])
+    merged = merge_permissions(org_default=empty, skill=empty)
+    assert merged is not None
+    assert merged.filesystem_read_paths == []
+    assert merged.filesystem_write_paths == []
+    guard = Guardrails(merged)
+    assert guard.evaluate_read("/workspace/out.txt").denied
+    assert guard.evaluate_write("/workspace/out.txt").denied
+
+
+def test_merge_omitted_path_lists_stay_unrestricted():
+    omitted = Permissions()
+    merged = merge_permissions(org_default=omitted, skill=omitted)
+    assert merged is not None
+    assert merged.filesystem_read_paths is None
+    assert merged.filesystem_write_paths is None
+    guard = Guardrails(merged)
+    assert guard.evaluate_read("/workspace/out.txt").allowed
+    assert guard.evaluate_write("/workspace/out.txt").allowed
+
+
+def test_merge_empty_allowlist_wins_over_listed_paths():
+    """Either layer declaring [] is deny-all; skill cannot widen org deny-all."""
+    empty = Permissions(filesystem_write_paths=[])
+    listed = Permissions(filesystem_write_paths=["/tmp/**"])
+    for org, skill in ((empty, listed), (listed, empty)):
+        merged = merge_permissions(org_default=org, skill=skill)
+        assert merged is not None
+        assert merged.filesystem_write_paths == []
+        assert Guardrails(merged).evaluate_write("/tmp/a").denied
+
+
+def test_merge_omitted_path_list_keeps_the_other_list():
+    omitted = Permissions()
+    listed = Permissions(filesystem_read_paths=["/var/log/**"])
+    merged = merge_permissions(org_default=listed, skill=omitted)
+    assert merged is not None
+    assert merged.filesystem_read_paths == ["/var/log/**"]
+    guard = Guardrails(merged)
+    assert guard.evaluate_read("/var/log/a").allowed
+    assert guard.evaluate_read("/etc/passwd").denied
+
+
 def test_merge_unions_allow_and_deny_rules():
     org = Permissions(
         skill="org",
@@ -297,18 +341,135 @@ def test_filesystem_allow_via_glob():
 
 
 def test_filesystem_no_rules_means_allow():
-    g = _make_guardrails()
+    """Omitted path lists (Permissions defaults) mean unrestricted."""
+    perms = Permissions()
+    assert perms.filesystem_read_paths is None
+    assert perms.filesystem_write_paths is None
+    g = Guardrails(perms)
     assert g.evaluate_read("/anything").allowed
     assert g.evaluate_write("/anywhere").allowed
 
 
-def test_filesystem_write_paths_empty_when_allow_list_present_blocks_all():
+def test_filesystem_nonempty_write_allowlist_blocks_outside_paths():
     g = _make_guardrails(
         filesystem_read_paths=["/data/**"],
         filesystem_write_paths=["/data/output/**"],
     )
     assert g.evaluate_write("/data/input/file").denied
     assert g.evaluate_write("/data/output/file").allowed
+
+
+def test_explicit_empty_write_paths_denies_all_writes(tmp_path):
+    """Issue #2: write_paths: [] means deny-all, not unrestricted."""
+    _write_permissions(
+        tmp_path,
+        """\
+        schema_version: bulbasaur/v1
+        skill: probe
+        filesystem:
+          write_paths: []
+    """,
+    )
+    p = load_permissions(tmp_path)
+    assert p is not None
+    assert p.filesystem_write_paths == []
+    assert p.filesystem_read_paths is None
+    g = Guardrails(p)
+    d = g.evaluate_write("/workspace/out.txt")
+    assert d.denied
+    assert d.rule_id.startswith("filesystem.write.")
+
+
+def test_omitted_filesystem_group_allows_writes(tmp_path):
+    _write_permissions(
+        tmp_path,
+        """\
+        schema_version: bulbasaur/v1
+        skill: probe
+    """,
+    )
+    p = load_permissions(tmp_path)
+    assert p is not None
+    assert p.filesystem_write_paths is None
+    assert p.filesystem_read_paths is None
+    guard = Guardrails(p)
+    assert guard.evaluate_write("/workspace/out.txt").allowed
+    assert guard.evaluate_read("/workspace/out.txt").allowed
+
+
+def test_explicit_empty_read_paths_denies_all_reads(tmp_path):
+    _write_permissions(
+        tmp_path,
+        """\
+        schema_version: bulbasaur/v1
+        skill: probe
+        filesystem:
+          read_paths: []
+    """,
+    )
+    p = load_permissions(tmp_path)
+    assert p is not None
+    assert p.filesystem_read_paths == []
+    assert p.filesystem_write_paths is None
+    guard = Guardrails(p)
+    assert guard.evaluate_read("/var/log/x").denied
+    assert guard.evaluate_write("/workspace/out.txt").allowed
+
+
+def test_nonempty_write_paths_allow_matching_glob(tmp_path):
+    _write_permissions(
+        tmp_path,
+        """\
+        schema_version: bulbasaur/v1
+        skill: probe
+        filesystem:
+          write_paths:
+            - /tmp/**
+    """,
+    )
+    p = load_permissions(tmp_path)
+    assert p is not None
+    g = Guardrails(p)
+    assert g.evaluate_write("/tmp/out.txt").allowed
+    assert g.evaluate_write("/workspace/out.txt").denied
+    assert p.filesystem_read_paths is None
+    assert g.evaluate_read("/etc/passwd").allowed
+
+
+def test_null_write_paths_denies_all_writes(tmp_path):
+    _write_permissions(
+        tmp_path,
+        """\
+        schema_version: bulbasaur/v1
+        skill: probe
+        filesystem:
+          write_paths: null
+    """,
+    )
+    p = load_permissions(tmp_path)
+    assert p is not None
+    assert p.filesystem_write_paths == []
+    assert Guardrails(p).evaluate_write("/workspace/out.txt").denied
+
+
+def test_nonempty_read_paths_allow_matching_glob(tmp_path):
+    _write_permissions(
+        tmp_path,
+        """\
+        schema_version: bulbasaur/v1
+        skill: probe
+        filesystem:
+          read_paths:
+            - /tmp/**
+    """,
+    )
+    p = load_permissions(tmp_path)
+    assert p is not None
+    g = Guardrails(p)
+    assert g.evaluate_read("/tmp/out.txt").allowed
+    assert g.evaluate_read("/workspace/out.txt").denied
+    assert p.filesystem_write_paths is None
+    assert g.evaluate_write("/workspace/out.txt").allowed
 
 
 # ── Guardrails — env ───────────────────────────────────────────────────────

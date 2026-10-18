@@ -192,8 +192,19 @@ class Guardrails:
             path, allowed=self._perm.filesystem_write_paths, mode="write"
         )
 
-    def _evaluate_fs(self, path: str, *, allowed: list[str], mode: str) -> Decision:
-        # Filesystem is glob-based, not regex.
+    def _evaluate_fs(
+        self, path: str, *, allowed: list[str] | None, mode: str
+    ) -> Decision:
+        # None = key omitted (no restriction). [] = explicit empty allowlist
+        # (deny-all). Non-empty = glob allowlist.
+        if allowed is None:
+            return Decision(
+                op_type=RuleGroup.FILESYSTEM,
+                op_value=path,
+                decision=DecisionType.ALLOW,
+                rule_id=f"filesystem.{mode}.no-rules",
+                reason=f"no {mode}_paths rules declared",
+            )
         for pat in allowed:
             if fnmatch.fnmatchcase(path, pat):
                 return Decision(
@@ -203,16 +214,13 @@ class Guardrails:
                     rule_id=f"filesystem.{mode}.allow",
                     reason=f"path matches {mode}_paths glob `{pat}`",
                 )
-        # Filesystem default is deny when allow-list is present and the path
-        # did not match; allow when the allow-list is empty (no rules == no
-        # restriction).
         if not allowed:
             return Decision(
                 op_type=RuleGroup.FILESYSTEM,
                 op_value=path,
-                decision=DecisionType.ALLOW,
-                rule_id=f"filesystem.{mode}.no-rules",
-                reason=f"no {mode}_paths rules declared",
+                decision=DecisionType.DENY,
+                rule_id=f"filesystem.{mode}.empty-allowlist",
+                reason=f"{mode}_paths is an empty allow list (deny all)",
             )
         return Decision(
             op_type=RuleGroup.FILESYSTEM,

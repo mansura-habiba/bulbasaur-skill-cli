@@ -93,8 +93,9 @@ class Permissions:
     network_allow: list[Rule] = field(default_factory=list)
     network_deny: list[Rule] = field(default_factory=list)
 
-    filesystem_read_paths: list[str] = field(default_factory=list)
-    filesystem_write_paths: list[str] = field(default_factory=list)
+    # None = key omitted (unrestricted). [] = explicit empty allowlist (deny-all).
+    filesystem_read_paths: list[str] | None = None
+    filesystem_write_paths: list[str] | None = None
 
     env_allow: list[str] = field(default_factory=list)
     env_redact: list[str] = field(default_factory=list)
