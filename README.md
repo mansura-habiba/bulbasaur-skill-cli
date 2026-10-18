@@ -11,6 +11,14 @@ Two workflows:
 1. **Author your own** — scaffold from the agentskills.io spec, compile, audit, evaluate, publish to a team marketplace, install as a locked dependency.
 2. **Consume external skills** — fetch from [skills.sh](https://skills.sh) or GitHub, quarantine in staging, trust-audit (guardrails, scripts, permissions), install after review.
 
+## Spec-Driven Development (SDD++)
+
+This repo is governed with **[SDD++](https://github.com/mansura-habiba/sdd-plus-plus)** — *Spec-Driven Development that ships*. SDD++ bootstraps a repo with executable specs, structured acceptance criteria, AI assistant rules (`AGENTS.md`), and CI gates so juniors, seniors, and coding agents share one contract instead of tribal knowledge.
+
+That is why `.governance/` exists here. It holds the durable framework (philosophy, schemas, capability specs, acceptance contracts, examples) that task cards and CI enforce. Work is anchored to a GitHub issue task card; assistants load the card and parent capability before generating code; `.github/workflows/governance.yml` rejects PRs that skip that contract.
+
+Start from [`.governance/README.md`](.governance/README.md). Upstream tool and full lifecycle: [mansura-habiba/sdd-plus-plus](https://github.com/mansura-habiba/sdd-plus-plus).
+
 ## Install
 
 ```bash
@@ -461,6 +469,8 @@ The `Fix` line is always copy-pasteable. The audit-enforced rule is that 90%+ of
 - [`docs/configuration.md`](docs/configuration.md) — config cascade
 - [`docs/troubleshooting.md`](docs/troubleshooting.md) — error → fix table
 - [`docs/bbsctl-roadmap.md`](docs/bbsctl-roadmap.md) — shipped vs planned
+- [`.governance/README.md`](.governance/README.md) — SDD++ framework in this repo
+- [SDD++](https://github.com/mansura-habiba/sdd-plus-plus) — Spec-Driven Development tooling that owns the `.governance/` pattern
 
 ## Architecture
 
@@ -493,7 +503,7 @@ bulbasaur-skill-cli/
 ├── docs/                         guides, recipes, audits
 ├── tests/                        cross-cutting contract tests
 ├── Makefile                      build, install, try, test, lint, clean
-└── .governance/                  capability + acceptance schemas
+└── .governance/                  SDD++ durable framework (schemas, capabilities, acceptance)
 ```
 
 ## Makefile targets
