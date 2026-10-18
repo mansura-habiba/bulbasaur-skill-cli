@@ -1,5 +1,7 @@
 # .governance — start here
 
+> **Why this folder exists in the product repo** is explained in the root [`README.md`](../README.md#repo-structure-and-why-sdd-is-here) (SDD++ and repo structure). This file is the how-to for living inside the framework day to day.
+>
 > **For juniors:** read this once. After that, the framework guides you through forms and CI checks. You won't need to memorize anything.
 >
 > **For seniors:** the framework's job is to externalize the context you usually keep in your head. The minute you find yourself reviewing a PR for compliance instead of judgment, something here is misconfigured — open an issue.
