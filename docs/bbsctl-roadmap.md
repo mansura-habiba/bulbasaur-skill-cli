@@ -6,6 +6,8 @@ Prioritized plan for planned-but-unshipped features in `bbsctl`. Sources: phase 
 
 Status legend: **✓** shipped · **◐** partial / stub · **✗** not started.
 
+**Contributing.** Newcomers: read [`CONTRIBUTING.md`](../CONTRIBUTING.md), then pick a [good first issue](https://github.com/mansura-habiba/bulbasaur-skill-cli/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) or propose one from a small **◐** / **✗** row below. Large P1–P3 items need a full [Task Card](https://github.com/mansura-habiba/bulbasaur-skill-cli/issues/new/choose) before implementation.
+
 ---
 
 ## 0. Shipped since the previous revision (do not re-plan)
@@ -293,6 +295,7 @@ User-facing distribution stays two verbs: **`bbsctl publish`** + **`bbsctl disco
 
 ### References
 
+- [`CONTRIBUTING.md`](../CONTRIBUTING.md) — good first issues + PR workflow
 - [`docs/lifecycle.md`](lifecycle.md) — stage map + CI
 - [`docs/recipes/how-to-run-pipeline.md`](recipes/how-to-run-pipeline.md)
 - [`docs/recipes/how-to-publish.md`](recipes/how-to-publish.md)

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Roadmap
+    url: https://github.com/mansura-habiba/bulbasaur-skill-cli/blob/main/docs/bbsctl-roadmap.md
+    about: See shipped vs planned work before opening a large feature request.
+  - name: Contributing guide
+    url: https://github.com/mansura-habiba/bulbasaur-skill-cli/blob/main/CONTRIBUTING.md
+    about: Good first issues, setup, and PR workflow.
