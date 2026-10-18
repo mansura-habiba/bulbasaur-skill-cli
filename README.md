@@ -11,14 +11,6 @@ Two workflows:
 1. **Author your own** — scaffold from the agentskills.io spec, compile, audit, evaluate, publish to a team marketplace, install as a locked dependency.
 2. **Consume external skills** — fetch from [skills.sh](https://skills.sh) or GitHub, quarantine in staging, trust-audit (guardrails, scripts, permissions), install after review.
 
-## Spec-Driven Development (SDD++)
-
-This repo is governed with **[SDD++](https://github.com/mansura-habiba/sdd-plus-plus)** — *Spec-Driven Development that ships*. SDD++ bootstraps a repo with executable specs, structured acceptance criteria, AI assistant rules (`AGENTS.md`), and CI gates so juniors, seniors, and coding agents share one contract instead of tribal knowledge.
-
-That is why `.governance/` exists here. It holds the durable framework (philosophy, schemas, capability specs, acceptance contracts, examples) that task cards and CI enforce. Work is anchored to a GitHub issue task card; assistants load the card and parent capability before generating code; `.github/workflows/governance.yml` rejects PRs that skip that contract.
-
-Start from [`.governance/README.md`](.governance/README.md). Upstream tool and full lifecycle: [mansura-habiba/sdd-plus-plus](https://github.com/mansura-habiba/sdd-plus-plus).
-
 ## Install
 
 ```bash
@@ -469,8 +461,8 @@ The `Fix` line is always copy-pasteable. The audit-enforced rule is that 90%+ of
 - [`docs/configuration.md`](docs/configuration.md) — config cascade
 - [`docs/troubleshooting.md`](docs/troubleshooting.md) — error → fix table
 - [`docs/bbsctl-roadmap.md`](docs/bbsctl-roadmap.md) — shipped vs planned
-- [`.governance/README.md`](.governance/README.md) — SDD++ framework in this repo
-- [SDD++](https://github.com/mansura-habiba/sdd-plus-plus) — Spec-Driven Development tooling that owns the `.governance/` pattern
+- [`.governance/README.md`](.governance/README.md) — how to use the in-repo governance framework (task cards, capabilities, CI)
+- [SDD++](https://github.com/mansura-habiba/sdd-plus-plus) — Spec-Driven Development tooling this repo uses
 
 ## Architecture
 
@@ -480,30 +472,37 @@ The framework is built on three reusable patterns:
 - **Adapter** — for cross-framework runtimes (Claude Agent SDK, MCP, LangGraph, CrewAI). Each adapter normalizes a foreign runtime into the `AgentRuntime` interface so `bbsctl run` and `bbsctl eval` don't care which one is in use.
 - **Decorator** — for cross-cutting concerns (telemetry, cost budgeting, audit logging) layered on top of runtimes and evaluators without modifying them.
 
-## Project layout
+## Repo structure (and why SDD++ is here)
+
+This project uses **[SDD++](https://github.com/mansura-habiba/sdd-plus-plus)** (*Spec-Driven Development that ships*). That is why the tree is not only a CLI package: it also carries executable specs, AI assistant rules, and CI gates so humans and coding agents share one contract.
+
+| Path | Role |
+|---|---|
+| `bbsctl/` | The product: `bbsctl` CLI (Python module `skillctl`) |
+| `docs/`, `sample/`, `quickstart/` | Product docs and examples |
+| `AGENTS.md` | Standing orders for AI assistants (loaded automatically) |
+| `.governance/` | Durable SDD++ framework: philosophy, schemas, capability specs, acceptance, examples |
+| `.github/ISSUE_TEMPLATE/`, `pull_request_template.md`, `workflows/governance.yml` | Task-card issues + PR/CI gates |
+| `tests/contract/` | Executable acceptance tests referenced by task cards |
+
+Work is anchored to a GitHub issue task card. Assistants read that card and its parent capability before generating code. CI rejects PRs that skip the contract. Working notes under `.governance/tasks/`, `.governance/wiki/`, and `.governance/progress.md` stay local (gitignored); only the durable framework is published.
+
+Upstream tool and lifecycle: [mansura-habiba/sdd-plus-plus](https://github.com/mansura-habiba/sdd-plus-plus). Day-to-day use of the framework files: [`.governance/README.md`](.governance/README.md).
 
 ```
 bulbasaur-skill-cli/
-├── bbsctl/                       the CLI package (Python ≥3.11, module: skillctl)
-│   ├── src/skillctl/
-│   │   ├── agentskills/          spec parser, rules, agentskills-spec.yaml
-│   │   ├── audit/                trust audit checks and runner
-│   │   ├── commands/             CLI subcommands
-│   │   ├── compile/              compile pipeline (Strategy pattern)
-│   │   ├── eval/                 evaluator framework
-│   │   ├── marketplace/          Git-backed marketplace + skills.lock
-│   │   ├── publish/              publish targets
-│   │   ├── run/                  AgentRuntime adapters
-│   │   ├── templates/            SKILL.md templates per strictness level
-│   │   └── validate/             validator chain
+├── bbsctl/                       CLI package (Python ≥3.11, module: skillctl)
+│   ├── src/skillctl/             agentskills, audit, commands, compile, eval, …
 │   ├── tests/
 │   └── pyproject.toml
-├── reference-plugins/            demo skills (hello-skill, log-analyzer)
-├── quickstart/                   the five-minute experience
-├── docs/                         guides, recipes, audits
-├── tests/                        cross-cutting contract tests
-├── Makefile                      build, install, try, test, lint, clean
-└── .governance/                  SDD++ durable framework (schemas, capabilities, acceptance)
+├── sample/                       example skills
+├── quickstart/                   five-minute experience
+├── docs/                         product guides and recipes
+├── AGENTS.md                     AI assistant rules (SDD++)
+├── .governance/                  durable SDD++ framework (schemas, capabilities, …)
+├── .github/                      task-card form, PR template, governance.yml
+├── tests/contract/               executable acceptance / contract tests
+└── Makefile
 ```
 
 ## Makefile targets
