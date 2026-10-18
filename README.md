@@ -518,7 +518,9 @@ make clean     # Remove build artifacts
 
 ## Contributing
 
-Two things make a PR easier to merge:
+Start with [`CONTRIBUTING.md`](CONTRIBUTING.md): roadmap → [good first issues](https://github.com/mansura-habiba/bulbasaur-skill-cli/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) → task card → PR.
+
+Two things that still make a PR easier to merge:
 
 1. **A friction note in the PR.** If your change touches the CLI surface or any error message, walk the affected flow as a fresh developer and note where you hesitated.
 2. **No vapor options.** If you add an argparse `choices=` value, the implementation behind it must work end-to-end. The vapor-options lint test walks the support registry and will fail otherwise.

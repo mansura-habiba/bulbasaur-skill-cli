@@ -1,0 +1,69 @@
+name: "Good first issue"
+description: "Small, well-scoped starter work for newcomers (docs, tests, or a focused code fix)."
+title: "[good first issue] "
+labels: ["good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for **starter** work. Point at a row in [`docs/bbsctl-roadmap.md`](../../docs/bbsctl-roadmap.md) when you can.
+
+        For a full feature/bug with CI contracts, prefer the **Task Card** template instead (or file a task card after maintainers confirm this scope).
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: "One-liner"
+      description: "What should be true when this is done?"
+      placeholder: "Document X / add a test for Y / fix help text for Z"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: "Area"
+      options:
+        - docs
+        - tests
+        - bbsctl CLI / help
+        - compile / validate
+        - eval
+        - permissions
+        - other
+    validations:
+      required: true
+
+  - type: input
+    id: roadmap
+    attributes:
+      label: "Roadmap pointer (optional)"
+      description: "Section or feature name from docs/bbsctl-roadmap.md"
+      placeholder: "e.g. RegressionEvaluator + --mode full (P0)"
+
+  - type: textarea
+    id: done
+    attributes:
+      label: "Done looks like"
+      description: "Observable check a reviewer can run in a few minutes."
+      placeholder: |
+        - Command or test to run
+        - Expected output / file change
+    validations:
+      required: true
+
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: "Out of scope"
+      description: "What this issue must not expand into."
+      placeholder: "No new dependencies; no signing / federation / new runtime"
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: "Notes for newcomers"
+      description: "Files to read first, traps to avoid."
+      placeholder: "Start at docs/… and bbsctl/src/skillctl/…"
