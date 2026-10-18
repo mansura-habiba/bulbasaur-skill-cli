@@ -81,8 +81,9 @@ network:
     - pattern: '^http://'                       # plaintext denied at org+
     - pattern: '^https?://(127\.0\.0\.1|localhost|169\.254\.)'
 
-# Filesystem rules. Read paths default to deny at `org+`; write paths always
-# default to deny. Patterns are glob (not regex) for filesystem readability.
+# Filesystem rules. Patterns are glob (not regex).
+# Omit read_paths or write_paths, or omit the filesystem group, to leave that
+# mode unrestricted. An empty list denies every path in that mode.
 filesystem:
   read_paths:
     - /var/log/openshift/**

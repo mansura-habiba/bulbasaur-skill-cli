@@ -113,11 +113,11 @@ def merge_permissions(
         namespaces_deny=_unique(org_default.namespaces_deny + skill.namespaces_deny),
         network_allow=list(org_default.network_allow) + list(skill.network_allow),
         network_deny=list(org_default.network_deny) + list(skill.network_deny),
-        filesystem_read_paths=_unique(
-            org_default.filesystem_read_paths + skill.filesystem_read_paths
+        filesystem_read_paths=_merge_optional_path_lists(
+            org_default.filesystem_read_paths, skill.filesystem_read_paths
         ),
-        filesystem_write_paths=_unique(
-            org_default.filesystem_write_paths + skill.filesystem_write_paths
+        filesystem_write_paths=_merge_optional_path_lists(
+            org_default.filesystem_write_paths, skill.filesystem_write_paths
         ),
         env_allow=_unique(org_default.env_allow + skill.env_allow),
         env_redact=_unique(org_default.env_redact + skill.env_redact),
@@ -135,6 +135,26 @@ def _unique(items: list[str]) -> list[str]:
             seen.add(item)
             out.append(item)
     return out
+
+
+def _merge_optional_path_lists(
+    org: list[str] | None, skill: list[str] | None
+) -> list[str] | None:
+    """Merge omit-vs-empty filesystem path lists.
+
+    None = key omitted (unrestricted). A declared list (including []) is an
+    allowlist. When both layers declare a list, an empty allowlist on either
+    side wins (deny-all); otherwise patterns are unioned.
+    """
+    if org is None and skill is None:
+        return None
+    if org is None:
+        return list(skill) if skill is not None else None
+    if skill is None:
+        return list(org)
+    if not org or not skill:
+        return []
+    return _unique(org + skill)
 
 
 def _parse(raw: dict[str, Any], *, path: Path) -> Permissions:
@@ -182,11 +202,14 @@ def _parse(raw: dict[str, Any], *, path: Path) -> Permissions:
             path=path,
         )
 
-    filesystem_read_paths: list[str] = []
-    filesystem_write_paths: list[str] = []
+    filesystem_read_paths: list[str] | None = None
+    filesystem_write_paths: list[str] | None = None
     if (fs := raw.get("filesystem")) and isinstance(fs, dict):
-        filesystem_read_paths = _parse_string_list(fs.get("read_paths"))
-        filesystem_write_paths = _parse_string_list(fs.get("write_paths"))
+        # Key present (even as []) => allowlist mode. Key absent => unrestricted.
+        if "read_paths" in fs:
+            filesystem_read_paths = _parse_string_list(fs.get("read_paths"))
+        if "write_paths" in fs:
+            filesystem_write_paths = _parse_string_list(fs.get("write_paths"))
 
     env_allow: list[str] = []
     env_redact: list[str] = []
