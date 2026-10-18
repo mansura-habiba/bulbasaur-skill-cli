@@ -106,6 +106,18 @@ def test_doctor_via_cli(capsys):
     assert "bbsctl" in names
 
 
+def test_doctor_reports_model_requirements(capsys):
+    """inspect needs no LLM; mellea reports configured model tags."""
+    code = main(["doctor", "--output", "json"])
+    assert code == 0
+    by_name = {row["name"]: row for row in json.loads(capsys.readouterr().out)}
+    assert by_name["skillspector"]["needs_llm"] is False
+    assert by_name["mellea-skills"]["needs_llm"] is True
+    keys = {m["key"] for m in by_name["mellea-skills"]["models"]}
+    assert keys >= {"inference_engine", "risk_model", "guardian_model"}
+    assert any(m["key"] == "risk_model" and m["value"] for m in by_name["mellea-skills"]["models"])
+
+
 @pytest.mark.skipif(not SAMPLE.is_dir(), reason="sample skill missing")
 def test_scan_standalone_on_sample(capsys):
     """Legacy bbsctl scan always uses bbsctl-audit."""

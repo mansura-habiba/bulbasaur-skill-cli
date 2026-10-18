@@ -24,6 +24,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
             "Reference: https://github.com/NVIDIA/SkillSpector\n\n"
             "Requires Python >= 3.12 and `skillspector` on PATH "
             "(`uv sync --group engines` or `uv tool install …`).\n"
+            "Always passes `--no-llm` — no model or API key is required.\n"
             "Legacy lightweight scan: `bbsctl scan` (bbsctl-audit)."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,

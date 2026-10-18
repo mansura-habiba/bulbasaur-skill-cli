@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../task-card.schema.yaml
+id: BBS-204
+title: "Make engine model requirements explicit (inspect vs mellea-certify)"
+type: feature
+tier: team
+
+links:
+  parent_capability: .governance/capabilities/lifecycle.yaml
+  related_issues:
+    - "https://github.com/mansura-habiba/bulbasaur-skill-cli/issues/7"
+  depends_on:
+    - BBS-201
+  design_docs:
+    - docs/recipes/how-to-commands.md
+    - docs/lifecycle.md
+
+goal:
+  one_liner: "After this ships, authors know which bbsctl verbs need LLMs and how to configure them."
+  bigger_picture: |
+    inspect hardcodes SkillSpector --no-llm. mellea-certify needs Ollama plus risk/guardian
+    models from [tool.bbsctl.engines.mellea]. Docs and doctor only checked binary presence,
+    so model setup was invisible until certify failed mid-run.
+  done_looks_like: |
+    doctor reports needs_llm + configured model tags (and Ollama readiness when probeable);
+    how-to-commands has a Models section; mellea-certify accepts --risk-model /
+    --guardian-model / --inference-engine / --n-fixtures overrides; tests cover doctor JSON.
+
+scope:
+  in_scope:
+    - "Extend EngineHealth / doctor with model requirements"
+    - "CLI overrides on mellea-certify for model settings"
+    - "Docs: how-to-commands Models section + lifecycle note"
+  non_goals:
+    - "Do not add LLM mode to bbsctl inspect (keep --no-llm)"
+    - "Do not change bbsctl eval/run runtime model config in this task"
+    - "Do not vendor Ollama or pull models automatically"
+
+acceptance:
+  spec: .governance/acceptance/skill-validation.acceptance.yaml
+  case_ids: []
+  contract_tests:
+    - "bbsctl/tests/test_lifecycle_pipeline.py::test_doctor_reports_model_requirements"
+  manual_checks:
+    - "bbsctl doctor --output json shows skillspector.needs_llm=false and mellea models"
+
+non_functional:
+  performance: "doctor ollama probe must timeout quickly (< 3 s)"
+  compatibility: "Defaults unchanged when CLI overrides omitted"
+
+ai_context:
+  required_reading:
+    - bbsctl/src/skillctl/lifecycle/doctor.py
+    - bbsctl/src/skillctl/lifecycle/config.py
+    - bbsctl/src/skillctl/lifecycle/engines/mellea.py
+    - bbsctl/src/skillctl/lifecycle/engines/skillspector.py
+    - docs/recipes/how-to-commands.md
+  search_for_duplicates: true
+  do_not_modify: []
+  preferred_patterns:
+    - "Config via [tool.bbsctl.engines.mellea]; CLI overrides are optional"
+    - "Doctor probes are best-effort (ready=null when unreachable)"
+
+ownership:
+  author: "@mansura"
+  reviewer: "@mansura"
+
+estimate:
+  points: 2
+  budget_hours: 3
+
+status: done
