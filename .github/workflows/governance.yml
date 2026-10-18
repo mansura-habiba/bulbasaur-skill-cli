@@ -35,8 +35,16 @@ jobs:
               schema = yaml.safe_load(f)
           validator = Draft202012Validator(schema)
 
+          # Task cards live in GitHub issues (canonical). Only the committed
+          # example(s) are validated here — working cards under .governance/tasks/
+          # are gitignored and not published.
+          paths = sorted(glob.glob(".governance/examples/task-card*.yaml"))
+          if not paths:
+              print("FAIL: no .governance/examples/task-card*.yaml to validate")
+              sys.exit(1)
+
           failed = 0
-          for path in glob.glob(".governance/tasks/*.yaml") + glob.glob(".governance/examples/task-card.example.yaml"):
+          for path in paths:
               with open(path) as f:
                   doc = yaml.safe_load(f)
               errors = sorted(validator.iter_errors(doc), key=lambda e: e.path)
@@ -107,8 +115,7 @@ jobs:
       - name: Extract task card from PR body
         id: task_card
         run: |
-          # The PR body references "Closes #N". The task card lives in that issue body
-          # (or as .governance/tasks/<id>.yaml if filed as a file).
+          # The PR body references "Closes #N". The task card lives in that issue body.
           # For v0.1, we check: the PR body must reference a closing issue, and
           # the diff must not touch any do_not_modify path mentioned in that task card.
           # Future: parse the issue body via gh CLI and check do_not_modify paths.

@@ -8,7 +8,7 @@
 
 Every change in this repo is anchored to a **task card** (see `.governance/task-card.schema.yaml`). Before you generate code, you must:
 
-1. **Locate the task card for the current branch.** It is in the linked Git issue, or in `.governance/tasks/<id>.yaml` if filed as a file. Read it in full.
+1. **Locate the task card for the current branch.** It lives in the linked GitHub issue body (canonical). Local working copies under `.governance/tasks/` are gitignored and not published — use them only if the human already has one checked out. Read the card in full.
 2. **Read every file listed in `ai_context.required_reading`.** These are not optional — the human author put them there because the task depends on them.
 3. **Read the parent capability spec** (`task_card.links.parent_capability`). This sets the contract you cannot violate.
 4. **Read `.governance/philosophy.md`** if you have not yet in this session.
