@@ -19,23 +19,20 @@ Layout produced (matches the public Claude Code plugin spec):
                     └── SKILL.md
 
 No signing, no enterprise overlay — this is the `local` strictness path.
-The framework is committed to stock-Claude-Code interop with zero patches
-(framework-build-plan.md §0.3 "the framework composes with developer tools"),
-so this target produces exactly what `/plugin marketplace add` expects.
 """
 
 from __future__ import annotations
 
 import json
 import shutil
+import tempfile
 from pathlib import Path
 
 from skillctl import __version__
+from skillctl.durable import atomic_write_json, purge_stale_markers, replace_directory
 
 from .target import PublishContext, PublishResult, PublishTarget
 
-# Public Claude Code plugin spec reserves certain marketplace names. Ours must
-# not collide. See https://code.claude.com/docs/en/plugin-marketplaces.
 _DEFAULT_MARKETPLACE_NAME = "bulbasaur-local"
 
 
@@ -64,52 +61,59 @@ class ClaudeCodeLocalTarget(PublishTarget):
         skill_name = context.frontmatter.name or "unnamed-skill"
         plugin_name = f"{skill_name}-plugin"
 
-        # Build the directory shape. We tolerate existing dirs (allows re-publish).
-        plugin_dir = marketplace_dir / "plugins" / plugin_name
-        skill_target_dir = plugin_dir / "skills" / skill_name
+        plugins_root = marketplace_dir / "plugins"
+        plugins_root.mkdir(parents=True, exist_ok=True)
+        purge_stale_markers(plugins_root)
+        plugin_dir = plugins_root / plugin_name
         marketplace_meta_dir = marketplace_dir / ".claude-plugin"
-        plugin_meta_dir = plugin_dir / ".claude-plugin"
+        marketplace_meta_dir.mkdir(parents=True, exist_ok=True)
 
-        for d in (marketplace_meta_dir, plugin_meta_dir, skill_target_dir):
-            d.mkdir(parents=True, exist_ok=True)
-
-        # Copy SKILL.md (and any scripts/, references/, assets/) from the source skill.
-        _copy_skill_files(src=context.skill_dir, dst=skill_target_dir)
-
-        # marketplace.json — the public Claude Code marketplace catalog format.
-        marketplace_manifest = {
-            "name": marketplace_name,
-            "owner": _author_object(author_name, author_email),
-            "description": "Bulbasaur-published skills (local marketplace).",
-            "plugins": [
-                {
-                    "name": plugin_name,
-                    "source": f"./plugins/{plugin_name}",
-                    "description": context.frontmatter.description or "",
-                    "version": "0.1.0",
-                }
-            ],
-            "metadata": {
-                "generated_by": f"skillctl {__version__}",
-                "strictness": context.strictness.value,
-            },
-        }
-        marketplace_json_path = marketplace_meta_dir / "marketplace.json"
-        marketplace_json_path.write_text(
-            json.dumps(marketplace_manifest, indent=2), encoding="utf-8"
+        staging = Path(
+            tempfile.mkdtemp(prefix=f".{plugin_name}.", dir=str(plugins_root))
         )
+        try:
+            skill_target_dir = staging / "skills" / skill_name
+            plugin_meta_dir = staging / ".claude-plugin"
+            skill_target_dir.mkdir(parents=True, exist_ok=True)
+            plugin_meta_dir.mkdir(parents=True, exist_ok=True)
 
-        # plugin.json — the public Claude Code plugin manifest.
-        plugin_manifest = {
+            _copy_skill_files(src=context.skill_dir, dst=skill_target_dir)
+
+            plugin_manifest = {
+                "name": plugin_name,
+                "version": "0.1.0",
+                "description": context.frontmatter.description or "",
+                "author": _author_object(author_name, author_email),
+            }
+            plugin_json_path = plugin_meta_dir / "plugin.json"
+            atomic_write_json(plugin_json_path, plugin_manifest)
+            replace_directory(staging, plugin_dir)
+        except Exception:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise
+
+        marketplace_json_path = marketplace_meta_dir / "marketplace.json"
+        entry = {
             "name": plugin_name,
-            "version": "0.1.0",
+            "source": f"./plugins/{plugin_name}",
             "description": context.frontmatter.description or "",
-            "author": _author_object(author_name, author_email),
+            "version": "0.1.0",
         }
-        plugin_json_path = plugin_meta_dir / "plugin.json"
-        plugin_json_path.write_text(json.dumps(plugin_manifest, indent=2), encoding="utf-8")
+        data = _load_or_seed_marketplace(
+            marketplace_json_path,
+            marketplace_name=marketplace_name,
+            author_name=author_name,
+            author_email=author_email,
+            strictness=context.strictness.value,
+        )
+        plugins = [p for p in (data.get("plugins") or []) if p.get("name") != plugin_name]
+        plugins.append(entry)
+        plugins.sort(key=lambda p: str(p.get("name") or ""))
+        data["plugins"] = plugins
+        data.setdefault("metadata", {})["generated_by"] = f"skillctl {__version__}"
+        data["metadata"]["strictness"] = context.strictness.value
+        atomic_write_json(marketplace_json_path, data)
 
-        # Build the next-steps the CLI will print.
         rel_marketplace = _relativize_for_display(marketplace_dir)
         next_steps = [
             "# 1. In Claude Code, add this marketplace:",
@@ -130,15 +134,41 @@ class ClaudeCodeLocalTarget(PublishTarget):
             target_name=self.name,
             artifacts={
                 "marketplace.json": str(marketplace_json_path),
-                "plugin.json": str(plugin_json_path),
+                "plugin.json": str(plugin_dir / ".claude-plugin" / "plugin.json"),
                 "marketplace_dir": str(marketplace_dir),
             },
             next_steps=next_steps,
         )
 
 
+def _load_or_seed_marketplace(
+    path: Path,
+    *,
+    marketplace_name: str,
+    author_name: str,
+    author_email: str | None,
+    strictness: str,
+) -> dict:
+    if path.is_file():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+        except (OSError, json.JSONDecodeError):
+            pass
+    return {
+        "name": marketplace_name,
+        "owner": _author_object(author_name, author_email),
+        "description": "Bulbasaur-published skills (local marketplace).",
+        "plugins": [],
+        "metadata": {
+            "generated_by": f"skillctl {__version__}",
+            "strictness": strictness,
+        },
+    }
+
+
 def _copy_skill_files(*, src: Path, dst: Path) -> None:
-    """Copy SKILL.md plus the optional spec subdirectories (scripts/, references/, assets/)."""
     skill_md = src / "SKILL.md"
     if skill_md.exists():
         shutil.copy2(skill_md, dst / "SKILL.md")
@@ -153,7 +183,6 @@ def _copy_skill_files(*, src: Path, dst: Path) -> None:
 
 
 def _author_object(name: str | None, email: str | None) -> dict[str, str]:
-    """Build the public-spec author object — `name` required, `email` optional."""
     out: dict[str, str] = {"name": name or "anonymous"}
     if email:
         out["email"] = email
@@ -161,17 +190,12 @@ def _author_object(name: str | None, email: str | None) -> dict[str, str]:
 
 
 def _detect_author_name() -> str:
-    """Best-effort author name detection. Falls back to 'anonymous'."""
     import os
 
     return os.environ.get("USER") or os.environ.get("USERNAME") or "anonymous"
 
 
 def _relativize_for_display(path: Path) -> str:
-    """Return a path relative to CWD when possible, otherwise absolute.
-
-    Quoting for shell safety: if the path contains spaces, wrap in quotes.
-    """
     try:
         rel = path.relative_to(Path.cwd())
         display = f"./{rel}"

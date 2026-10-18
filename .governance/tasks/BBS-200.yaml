@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../task-card.schema.yaml
+id: BBS-200
+title: "Implement bbsctl lifecycle pipeline (M1–M4)"
+type: feature
+tier: team
+
+links:
+  parent_capability: .governance/capabilities/lifecycle.yaml
+  related_issues:
+    - "https://github.com/mansura-habiba/bulbasaur-skill-cli/issues/4"
+    - "https://github.com/mansura-habiba/bulbasaur-skill-cli/pull/5"
+  depends_on: []
+  design_docs:
+    - docs/lifecycle.md
+    - docs/strictness-levels.md
+
+goal:
+  one_liner: "After this ships, `bbsctl pipeline` walks the skill lifecycle with swappable engines and an evidence bundle."
+  bigger_picture: |
+    bbsctl is the mature per-stage CLI. Teams need one process that enforces order,
+    caches reproducible results, and packages SARIF + certification + human approval.
+    Lifecycle lives inside bbsctl — not a second binary.
+  done_looks_like: |
+    `bbsctl pipeline` / stage commands / doctor / approve / verify work on sample skills;
+    inspect and mellea-certify force SkillSpector and Mellea; publish + discover are the
+    distribution verbs; PyPI release workflow builds cleanly; contract tests green.
+
+scope:
+  in_scope:
+    - "skillctl.lifecycle package per docs/lifecycle.md"
+    - "PEP 735 engines dependency group + uv sources pins"
+    - "Scan/certify adapters via subprocess; bbsctl stages in-process"
+    - "Evidence bundle + approve + verify + publish gate"
+    - "Stage verbs: inspect, scan, mellea-certify, certify, pipeline"
+    - "pre-commit hook, .github/actions/bbsctl-pipeline, docs/lifecycle.md, make try-pipeline"
+  non_goals:
+    - "Do not implement Sigstore signing (M5 / roadmap S4) beyond the existing placeholder"
+    - "Do not raise requires-python to 3.12 in this task"
+    - "Do not add a second console script beside bbsctl"
+
+acceptance:
+  spec: .governance/acceptance/skill-validation.acceptance.yaml
+  case_ids: []
+  contract_tests:
+    - "bbsctl/tests/test_lifecycle_pipeline.py::test_run_fail_fast_on_stage_failure"
+    - "bbsctl/tests/test_mellea_engine.py::test_mellea_certify_forces_mellea_despite_config_none"
+  manual_checks:
+    - "bbsctl doctor prints Fix lines when engines are missing"
+    - "PR #5 CI green"
+
+non_functional:
+  performance: "pre-commit path --to compile --fast targets < 5 s"
+  compatibility: "Base wheel stays stdlib + ruamel.yaml; engines via dependency group only"
+
+ai_context:
+  required_reading:
+    - docs/lifecycle.md
+    - .governance/philosophy.md
+    - .governance/capabilities/lifecycle.yaml
+    - bbsctl/src/skillctl/cli.py
+    - bbsctl/src/skillctl/messaging/__init__.py
+    - bbsctl/src/skillctl/eval/reproducibility.py
+    - bbsctl/src/skillctl/marketplace/bundle.py
+  search_for_duplicates: true
+  do_not_modify: []
+  preferred_patterns:
+    - "argparse CLI with same top-level exception wrapper as bbsctl"
+    - "Strategy+Factory for engines"
+    - "FrameworkError Fix lines for missing engines"
+    - "engine_override on dedicated verbs (inspect / mellea-certify)"
+
+ownership:
+  author: "@mansura"
+  reviewer: "@mansura"
+
+estimate:
+  points: 8
+  budget_hours: 24
+
+status: in_progress

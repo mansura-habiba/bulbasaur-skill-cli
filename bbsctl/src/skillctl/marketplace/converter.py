@@ -41,7 +41,7 @@ class ManifestConverterError(Exception):
 
 
 class ManifestConverter:
-    """Converts OIC manifest.yml to Claude Code plugin.json and marketplace.json entries."""
+    """Converts catalog manifest.yml to Claude Code plugin.json and marketplace.json entries."""
 
     def __init__(self, skill_dir: Path) -> None:
         self.skill_dir = skill_dir.resolve()
@@ -57,7 +57,7 @@ class ManifestConverter:
             raise ManifestConverterError(
                 FrameworkError(
                     summary=f"manifest.yml not found at {self.manifest_path}",
-                    fix="Create a valid OIC `manifest.yml` in the skill directory.",
+                    fix="Create a valid catalog `manifest.yml` in the skill directory.",
                 )
             )
 
@@ -160,7 +160,7 @@ class ManifestConverter:
                     FrameworkError(
                         summary="publish failed: governance gate violation",
                         detail=f"Asset '{name}' requires org-level approval but 'promotion.approved' is currently empty (NULL).",
-                        fix="Submit your asset for approval via the OIC platform or run with local-tier settings.",
+                        fix="Submit your asset for catalog approval, or run with local-tier settings.",
                     )
                 )
 

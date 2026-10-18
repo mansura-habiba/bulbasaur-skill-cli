@@ -24,10 +24,18 @@ from __future__ import annotations
 
 import json
 import shutil
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from skillctl import __version__
+from skillctl.durable import (
+    atomic_write_json,
+    file_lock,
+    purge_stale_markers,
+    replace_directory,
+)
+
 
 
 @dataclass
@@ -179,9 +187,7 @@ class GitMarketplace:
                 owner={"name": owner_name},
                 description=description,
             )
-            manifest_path.write_text(
-                json.dumps(manifest.to_dict(), indent=2), encoding="utf-8"
-            )
+            atomic_write_json(manifest_path, manifest.to_dict())
 
         # .gitkeep so the plugins/ directory is tracked in an empty repo.
         gitkeep = plugins_dir / ".gitkeep"
@@ -210,7 +216,32 @@ class GitMarketplace:
     def save_manifest(self, manifest: MarketplaceManifest) -> None:
         path = self._root / self._MARKETPLACE_JSON
         manifest.generated_by = f"skillctl {__version__}"
-        path.write_text(json.dumps(manifest.to_dict(), indent=2), encoding="utf-8")
+        with file_lock(path):
+            # Re-read under the lock so concurrent publishers do not clobber
+            # each other's plugin entries when both called load_manifest earlier.
+            if path.exists():
+                on_disk = MarketplaceManifest.from_dict(
+                    json.loads(path.read_text(encoding="utf-8"))
+                )
+                by_name = {p.name: p for p in on_disk.plugins}
+                for p in manifest.plugins:
+                    by_name[p.name] = p
+                merged = MarketplaceManifest(
+                    name=manifest.name or on_disk.name,
+                    owner=manifest.owner or on_disk.owner,
+                    description=manifest.description or on_disk.description,
+                    plugins=sorted(by_name.values(), key=lambda e: e.name),
+                    generated_by=f"skillctl {__version__}",
+                    plugin_root=manifest.plugin_root or on_disk.plugin_root,
+                    allow_cross_dependencies=(
+                        manifest.allow_cross_dependencies
+                        or on_disk.allow_cross_dependencies
+                    ),
+                )
+            else:
+                merged = manifest
+                merged.generated_by = f"skillctl {__version__}"
+            atomic_write_json(path, merged.to_dict())
 
     def list_plugins(self) -> list[MarketplaceEntry]:
         return self.load_manifest().plugins
@@ -256,51 +287,59 @@ class GitMarketplace:
             derived_plugin_name = plugin_json_data["name"]
             derived_version = plugin_json_data["version"]
             derived_description = plugin_json_data["description"]
-            derived_strictness = "team" # fallback to team level for OIC
+            derived_strictness = "team"  # catalog manifests default to team
             # Verify strict mode conflict on the source directory before publishing
             verify_strict_mode_conflict(skill_dir, converter.derive_strict_mode())
 
-        plugin_dir = self._root / self._PLUGINS_DIR / derived_plugin_name
-        skill_target_dir = plugin_dir / "skills" / skill_name
-        plugin_meta_dir = plugin_dir / ".claude-plugin"
+        plugins_root = self._root / self._PLUGINS_DIR
+        purge_stale_markers(plugins_root)
+        plugin_dir = plugins_root / derived_plugin_name
 
-        if plugin_dir.exists() and overwrite:
-            shutil.rmtree(plugin_dir)
-
-        skill_target_dir.mkdir(parents=True, exist_ok=True)
-        plugin_meta_dir.mkdir(parents=True, exist_ok=True)
-
-        # Copy skill files.
-        _copy_skill_files(src=skill_dir, dst=skill_target_dir)
-
-        # Write plugin.json (Claude Code plugin spec).
-        if has_manifest:
-            (plugin_meta_dir / "plugin.json").write_text(
-                json.dumps(plugin_json_data, indent=2), encoding="utf-8"
-            )
-        else:
-            author: dict[str, str] = {"name": author_name}
-            if author_email:
-                author["email"] = author_email
-            plugin_manifest = {
-                "name": derived_plugin_name,
-                "version": derived_version,
-                "description": derived_description,
-                "author": author,
-                "metadata": {"strictness": derived_strictness},
-            }
-            (plugin_meta_dir / "plugin.json").write_text(
-                json.dumps(plugin_manifest, indent=2), encoding="utf-8"
+        if plugin_dir.exists() and not overwrite:
+            raise FileExistsError(
+                f"plugin {derived_plugin_name!r} already published at {plugin_dir}"
             )
 
-        # Write bundle.lock + bundle.sig (signature is a placeholder until
-        # Sigstore lands in Phase 3).
-        from .bundle import write_bundle_lock, write_bundle_signature_placeholder
+        # Stage into a temp tree, then atomically replace the live plugin dir.
+        # A crash mid-copy never leaves a half-written tree as the live path.
+        staging_root = Path(
+            tempfile.mkdtemp(prefix=f".{derived_plugin_name}.", dir=str(plugins_root))
+        )
+        try:
+            skill_target_dir = staging_root / "skills" / skill_name
+            plugin_meta_dir = staging_root / ".claude-plugin"
+            skill_target_dir.mkdir(parents=True, exist_ok=True)
+            plugin_meta_dir.mkdir(parents=True, exist_ok=True)
 
-        write_bundle_lock(plugin_dir, name=derived_plugin_name, version=derived_version)
-        write_bundle_signature_placeholder(plugin_dir)
+            _copy_skill_files(src=skill_dir, dst=skill_target_dir)
 
-        # Update marketplace.json.
+            if has_manifest:
+                atomic_write_json(plugin_meta_dir / "plugin.json", plugin_json_data)
+            else:
+                author: dict[str, str] = {"name": author_name}
+                if author_email:
+                    author["email"] = author_email
+                plugin_manifest = {
+                    "name": derived_plugin_name,
+                    "version": derived_version,
+                    "description": derived_description,
+                    "author": author,
+                    "metadata": {"strictness": derived_strictness},
+                }
+                atomic_write_json(plugin_meta_dir / "plugin.json", plugin_manifest)
+
+            from .bundle import write_bundle_lock, write_bundle_signature_placeholder
+
+            write_bundle_lock(
+                staging_root, name=derived_plugin_name, version=derived_version
+            )
+            write_bundle_signature_placeholder(staging_root)
+
+            replace_directory(staging_root, plugin_dir)
+        except Exception:
+            shutil.rmtree(staging_root, ignore_errors=True)
+            raise
+
         market_manifest = self.load_manifest()
 
         if has_manifest:
@@ -327,7 +366,6 @@ class GitMarketplace:
                 strictness=derived_strictness,
             )
 
-        # Upsert by name.
         market_manifest.plugins = [
             p for p in market_manifest.plugins if p.name != derived_plugin_name
         ]

@@ -1,0 +1,326 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+#
+# task-card.schema.yaml — the per-issue contract
+#
+# Every Git issue / Jira ticket / Linear card populates this template. It is loaded into AI
+# coding-assistant context automatically (via .cursorrules / AGENTS.md / copilot-instructions.md).
+#
+# Purpose, mapped to the four team pains:
+#   - "junior ignores design docs"   → ai_context.required_reading forces docs into AI context
+#   - "doesn't ask end goal"          → goal.bigger_picture is required, cannot be empty
+#   - "AI tests please code, not spec"→ acceptance.contract_tests must reference existing fixtures
+#   - "senior overbuilds"             → scope.non_goals required, minItems: 1
+#
+# This schema is enforced in CI. A PR cannot merge if its task card fails validation.
+
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://bulbasaur-skill-cli/.governance/task-card.schema.yaml"
+title: "Task Card"
+type: object
+additionalProperties: false
+
+required:
+  - id
+  - title
+  - type
+  - links
+  - goal
+  - scope
+  - acceptance
+  - ai_context
+  - ownership
+
+properties:
+
+  # -------------------------------------------------------------------------
+  # Identity
+  # -------------------------------------------------------------------------
+
+  id:
+    type: string
+    description: Tracker-issued ID. Must match the tracker so CI can cross-reference.
+    pattern: "^[A-Z]+-[0-9]+$|^gh-[0-9]+$"
+    examples: ["DM-127", "BBS-42", "gh-118"]
+
+  title:
+    type: string
+    description: One-line title visible in the tracker.
+    maxLength: 80
+
+  type:
+    type: string
+    description: Determines which CI checks run and which acceptance defaults apply.
+    enum:
+      - feature      # new capability
+      - bug          # defect against existing behavior
+      - refactor     # internal change, no behavior delta
+      - spike        # time-boxed investigation, output is a written finding
+      - chore        # build, deps, docs
+      - migration    # data or schema change with rollout plan
+
+  tier:
+    type: string
+    description: |
+      Strictness tier (matches bulbasaur-skill-cli strictness-levels.md). Controls which optional
+      sections become required at merge time. Default `team`.
+    enum: [local, team, org, regulated]
+    default: team
+
+  # -------------------------------------------------------------------------
+  # Links — every related thing the AI and the author must read first
+  # -------------------------------------------------------------------------
+
+  links:
+    type: object
+    description: |
+      Forces the author to declare what context this task touches. Empty `links` is the
+      anti-pattern of juniors not asking about related issues before opening a duplicate.
+    required:
+      - parent_capability
+    additionalProperties: false
+    properties:
+      parent_capability:
+        type: string
+        description: |
+          Path to the capability spec this task contributes to (e.g. `.governance/capabilities/skill-registry.yaml`).
+          Required — every task belongs to exactly one capability.
+      related_issues:
+        type: array
+        items: { type: string }
+        description: Other tickets touching the same area. Author must search the tracker before filing.
+      depends_on:
+        type: array
+        items: { type: string }
+        description: Tickets that must merge first. CI blocks merge if any are still open.
+      design_docs:
+        type: array
+        items: { type: string }
+        description: ADRs, RFCs, design notes the AI must read before generating.
+
+  # -------------------------------------------------------------------------
+  # Goal — externalize what was only in the manager's head
+  # -------------------------------------------------------------------------
+
+  goal:
+    type: object
+    description: |
+      Why this work exists. All three fields required — they fix the implicit-context problem
+      where the "end goal" lived in the lead's head and never reached the engineer or the AI.
+    required:
+      - one_liner
+      - bigger_picture
+      - done_looks_like
+    additionalProperties: false
+    properties:
+      one_liner:
+        type: string
+        maxLength: 200
+        description: Single-sentence outcome. "After this ships, X is possible."
+      bigger_picture:
+        type: string
+        minLength: 50
+        description: |
+          The wider initiative this serves, what comes next, what the user-visible improvement is.
+          minLength: 50 enforces actual sentences, not "see Jira."
+      done_looks_like:
+        type: string
+        description: |
+          Concrete description of the merged state. Avoid "works correctly"; describe the
+          observable outcome.
+
+  # -------------------------------------------------------------------------
+  # Scope — the stop condition for over-engineering
+  # -------------------------------------------------------------------------
+
+  scope:
+    type: object
+    description: |
+      In-scope / non-goals. The `non_goals` field is required with at least one entry —
+      this is the structural fix for the senior-overbuild pattern.
+    required:
+      - in_scope
+      - non_goals
+    additionalProperties: false
+    properties:
+      in_scope:
+        type: array
+        minItems: 1
+        items: { type: string }
+        description: What this task delivers. Concrete, verifiable.
+      non_goals:
+        type: array
+        minItems: 1
+        items: { type: string }
+        description: |
+          What this task explicitly does NOT do, even if a senior or the AI would naturally extend.
+          At least one entry required — forces the discipline of bounding the change.
+          Examples: "Do not refactor X", "No UI polish", "Performance work deferred to DM-129".
+
+  # -------------------------------------------------------------------------
+  # Acceptance — the contract CI gates against
+  # -------------------------------------------------------------------------
+
+  acceptance:
+    type: object
+    description: |
+      The verifiable definition of done. Two ways to satisfy this section:
+
+      (a) `spec` — point at a structured acceptance spec (`.governance/acceptance/*.yaml`) that
+          enumerates cases / invariants / DoD / success criteria. Required at tier `team`+.
+          This is the AI-resistant path — the spec is human-authored, AI implements tests against it.
+
+      (b) `contract_tests` — flat list of test IDs. Permitted at tier `local` for quick/throwaway
+          tasks. AI-generated tests against an ad-hoc list are exactly the anti-pattern this
+          framework exists to stop, so it's deliberately weaker.
+
+      A task may use one OR both — a task can reference a spec AND list extra contract tests
+      specific to the issue. Reviewers focus on judgment; compliance is a CI gate.
+    additionalProperties: false
+    anyOf:
+      - required: [spec]
+      - required: [contract_tests]
+    properties:
+      spec:
+        type: string
+        description: |
+          Path to a structured acceptance spec (`.governance/acceptance/<id>.acceptance.yaml`).
+          The spec must already exist and be `status: ratified`. AI is forbidden from authoring
+          this file — only humans may write or edit it.
+        examples: [".governance/acceptance/skill-validation.acceptance.yaml"]
+      case_ids:
+        type: array
+        items: { type: string }
+        description: |
+          Optional. If `spec` is set, the specific case_ids from that spec this task must satisfy.
+          If omitted, all cases in the spec apply. Use this when one task delivers a subset of a
+          larger capability's acceptance coverage.
+      contract_tests:
+        type: array
+        items:
+          type: string
+          description: |
+            Test ID. Format: `path/to/file.py::test_function`. Test must already exist before
+            the PR is opened — if it doesn't, the test is authored as the first commit in the branch.
+        examples:
+          - "tests/contract/test_skill_validation.py::test_minimum_valid_skill_accepted"
+      manual_checks:
+        type: array
+        items: { type: string }
+        description: |
+          Things that genuinely need a human eye (architectural fit, UX nuance). Keep short —
+          if it can be automated, write the test instead.
+      anti_tests:
+        type: array
+        items: { type: string }
+        description: |
+          Tests that must NOT exist after this PR — usually old behavior being replaced.
+          Catches the case where AI adds new code without removing the superseded.
+
+  # -------------------------------------------------------------------------
+  # Non-functional — required for tier >= org
+  # -------------------------------------------------------------------------
+
+  non_functional:
+    type: object
+    description: |
+      Catches the "junior ignores performance" pattern by forcing the author to specify
+      non-functional concerns when they apply.
+    additionalProperties: false
+    properties:
+      performance:
+        type: string
+        description: e.g. "p95 latency < 200ms for the registry lookup endpoint"
+      security:
+        type: string
+      compatibility:
+        type: string
+        description: Backwards-compat or migration concerns.
+      observability:
+        type: string
+
+  # -------------------------------------------------------------------------
+  # AI context — the file that closes the "ignored docs" loop
+  # -------------------------------------------------------------------------
+
+  ai_context:
+    type: object
+    description: |
+      Direct instructions for AI coding assistants. The framework auto-loads this section into
+      the AI session for any work touching this task's branch.
+    required:
+      - required_reading
+    additionalProperties: false
+    properties:
+      required_reading:
+        type: array
+        minItems: 1
+        items: { type: string }
+        description: |
+          File paths the AI must read before generating code. Always include the parent_capability
+          and any design_docs. The framework injects these into the model's context window.
+      search_for_duplicates:
+        type: boolean
+        default: true
+        description: AI must grep for existing implementations before generating new ones.
+      do_not_modify:
+        type: array
+        items: { type: string }
+        description: Paths the AI cannot touch. Useful for stable contracts and generated code.
+      preferred_patterns:
+        type: array
+        items: { type: string }
+        description: |
+          e.g. "factory pattern for new adapter", "no new third-party dependencies",
+          "extend existing validator, do not create a parallel one".
+
+  # -------------------------------------------------------------------------
+  # Ownership and bookkeeping
+  # -------------------------------------------------------------------------
+
+  ownership:
+    type: object
+    required:
+      - author
+      - reviewer
+    additionalProperties: false
+    properties:
+      author:
+        type: string
+        description: Handle of the engineer doing the work.
+      reviewer:
+        type: string
+        description: Required reviewer. A single human, not a group alias.
+      tier_approver:
+        type: string
+        description: Required when tier is `org` or `regulated`. The person signing off on the tier.
+
+  estimate:
+    type: object
+    description: |
+      Time budget. Catches senior-overbuild by making the agreed effort explicit before work starts.
+    additionalProperties: false
+    properties:
+      points:
+        type: number
+        description: Story points or T-shirt size mapped to numeric.
+      budget_hours:
+        type: number
+        description: If actual time exceeds this by >50%, the author surfaces in next standup.
+
+  status:
+    type: string
+    enum: [draft, ready, in_progress, in_review, blocked, done, abandoned]
+    default: draft
+
+# -------------------------------------------------------------------------
+# Tier-specific requirements (enforced by the validator, not the schema itself)
+# -------------------------------------------------------------------------
+# tier `team`:
+#   - all required:* fields above
+# tier `org` adds:
+#   - non_functional.performance OR explicit "n/a" in manual_checks
+#   - ownership.tier_approver
+# tier `regulated` adds:
+#   - non_functional.security
+#   - design_docs at least 1 entry
+#   - tier_approver from regulatory-sign-off group

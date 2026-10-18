@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../task-card.schema.yaml
+id: BBS-203
+title: "Fix reflect backlog #6 — CI gates, publish idempotency, governance injection"
+type: chore
+tier: team
+
+links:
+  parent_capability: .governance/capabilities/lifecycle.yaml
+  related_issues:
+    - "https://github.com/mansura-habiba/bulbasaur-skill-cli/issues/6"
+  depends_on:
+    - BBS-202
+  design_docs:
+    - docs/recipes/how-to-release-pypi.md
+    - .governance/principles.md
+
+goal:
+  one_liner: "After this ships, PR #5 gates are green and issue #6 backlog items are mechanized."
+  bigger_picture: |
+    Reflect on the lifecycle PR surfaced CI failures and process gaps: shell-injected
+    PR bodies, double-publish risk, local tests that did not match CI, deleted-doc
+    references, and a missing flat-CLI principle.
+  done_looks_like: |
+    Contract tests pass; governance check-scope is injection-safe; sample pipeline
+    green for local+team matrices; `make ci` exists; forbidden-terms gate present;
+    issue #6 closed.
+
+scope:
+  in_scope:
+    - "python-publish.yml concurrency + skip-existing; tags build-only"
+    - "governance.yml env-pass for PR body/labels; forbidden-terms check"
+    - "bbsctl-pipeline.yml per-sample strictness; drop feature-branch push trigger"
+    - "Fix task-card.example required_reading; scrub progress.md"
+    - "make ci; principles #8–9; CLI shape registration test"
+  non_goals:
+    - "Do not bump PyPI package version"
+    - "Do not configure PyPI Trusted Publisher UI"
+    - "Do not split PR #5 into multiple PRs in this chore"
+
+acceptance:
+  spec: .governance/acceptance/skill-validation.acceptance.yaml
+  case_ids: []
+  contract_tests:
+    - "tests/contract/test_task_card_validates.py::test_task_card_required_reading_files_exist"
+    - "bbsctl/tests/test_lifecycle_pipeline.py::test_help_lists_stage_commands"
+  manual_checks:
+    - "gh pr checks 5 green after push"
+    - "Close issue #6"
+
+non_functional:
+  performance: "make ci targets the same commands as CI, not a second suite"
+  compatibility: "local samples stay without skill.yaml"
+
+ai_context:
+  required_reading:
+    - .governance/philosophy.md
+    - .governance/principles.md
+    - docs/recipes/how-to-release-pypi.md
+  search_for_duplicates: true
+  do_not_modify: []
+  preferred_patterns:
+    - "Untrusted Actions inputs via env:"
+    - "Idempotent publish with skip-existing"
+
+ownership:
+  author: "@mansura"
+  reviewer: "@mansura"
+
+estimate:
+  points: 2
+  budget_hours: 3
+
+status: done

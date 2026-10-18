@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "bbsctl"
 version = "0.1.1"
 description = "Bulbasaur skill framework CLI — design, compile, validate, deploy, and evaluate agent skills like production code."
-readme = "../README.md"
+readme = "README.md"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Bulbasaur framework" }]
 requires-python = ">=3.11,<3.14"
@@ -64,8 +64,34 @@ dev = [
 
 # Per ADR 0006: PyPI package name is `bbsctl`; CLI binary is `bbsctl`;
 # Python module remains `skillctl` (internal import path, unchanged).
+# bbsctl lifecycle is NOT a second binary — it is the lifecycle package behind
+# `bbsctl pipeline` / `bbsctl doctor` / `bbsctl approve` / `bbsctl verify`.
 [project.scripts]
 bbsctl = "skillctl.cli:main"
+
+# PEP 735 — not published to PyPI metadata. `uv sync --group engines`.
+[dependency-groups]
+engines = [
+  "skillspector; python_version >= '3.12'",
+  "mellea-skills-compiler",
+]
+
+[tool.uv.sources]
+skillspector = { git = "https://github.com/NVIDIA/SkillSpector", rev = "cf5cac7ba5c756a6e0ebf52dc9763f49422f889f" }
+mellea-skills-compiler = { git = "https://github.com/generative-computing/mellea-skills-compiler", rev = "1538a0870ab9868ff5252c96722ba3827a4345ab" }
+
+[tool.bbsctl]
+default_strictness = "team"
+
+[tool.bbsctl.engines]
+scan = "bbsctl-audit"
+certify = "none"
+
+[tool.bbsctl.engines.mellea]
+inference_engine = "ollama"
+risk_model = "granite4.1:3b"
+guardian_model = "ibm/granite3.3-guardian:8b"
+n_fixtures = 3
 
 [project.urls]
 Homepage = "https://github.com/mansura-habiba/bulbasaur-skill-cli"

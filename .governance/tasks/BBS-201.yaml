@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../task-card.schema.yaml
+id: BBS-201
+title: "Add bbsctl mellea-certify (force Mellea engine)"
+type: feature
+tier: team
+
+links:
+  parent_capability: .governance/capabilities/lifecycle.yaml
+  related_issues:
+    - "https://github.com/mansura-habiba/bulbasaur-skill-cli/issues/4"
+  depends_on:
+    - BBS-200
+  design_docs:
+    - docs/lifecycle.md
+    - docs/recipes/how-to-commands.md
+
+goal:
+  one_liner: "After this ships, `bbsctl mellea-certify` always runs Mellea the same way `bbsctl inspect` always runs SkillSpector."
+  bigger_picture: |
+    Certify was only reachable via config (`certify = "mellea"`) or the generic
+    `bbsctl certify` stage. Authors need an explicit verb that does not depend
+    on pyproject engine selection, mirroring the inspect/scan split.
+  done_looks_like: |
+    `bbsctl mellea-certify` is registered; forces MelleaEngine; docs list it;
+    tests cover registration and missing-binary exit 2; `bbsctl certify`
+    remains config-driven.
+
+scope:
+  in_scope:
+    - "commands/mellea_certify_cmd.py with engine_override=MelleaEngine()"
+    - "cli registration + help copy on certify"
+    - "README / lifecycle / how-to-commands"
+    - "test_lifecycle_pipeline registration + missing-engine test"
+  non_goals:
+    - "Do not remove or rename bbsctl certify"
+    - "Do not change pipeline stage order or default engine to mellea"
+    - "Do not pin or vendor mellea into the base wheel"
+
+acceptance:
+  spec: .governance/acceptance/skill-validation.acceptance.yaml
+  case_ids: []
+  contract_tests:
+    - "bbsctl/tests/test_lifecycle_pipeline.py::test_help_lists_stage_commands"
+    - "bbsctl/tests/test_mellea_engine.py::test_mellea_certify_forces_mellea_despite_config_none"
+    - "bbsctl/tests/test_mellea_engine.py::test_mellea_engine_certify_success_and_enforce"
+    - "bbsctl/tests/test_mellea_engine.py::test_certify_config_none_does_not_invoke_mellea"
+
+  manual_checks:
+    - "bbsctl mellea-certify --help mentions Mellea"
+    - "Add issue #4 to https://github.ibm.com/users/MANSURAH/projects/3 after gh auth refresh"
+
+non_functional:
+  performance: "n/a — thin stage wrapper"
+  compatibility: "Base install unchanged; mellea-skills still optional via engines group"
+
+ai_context:
+  required_reading:
+    - docs/lifecycle.md
+    - bbsctl/src/skillctl/commands/inspect_cmd.py
+    - bbsctl/src/skillctl/lifecycle/stage_cmd.py
+    - bbsctl/src/skillctl/lifecycle/engines/mellea.py
+  search_for_duplicates: true
+  do_not_modify: []
+  preferred_patterns:
+    - "Mirror inspect_cmd: dedicated verb + engine_override"
+    - "FrameworkError Fix lines for missing engines"
+
+ownership:
+  author: "@mansura"
+  reviewer: "@mansura"
+
+estimate:
+  points: 1
+  budget_hours: 2
+
+status: done

@@ -167,4 +167,4 @@ The same cascade serves all three because each layer is owned by the role with a
 - [`docs/evaluation.md`](evaluation.md) — eval module surface
 - [`docs/permissions.md`](permissions.md) — permissions cascade (separate but parallel)
 - [`docs/strictness-levels.md`](strictness-levels.md) — strictness rung defaults
-- [`docs/ide-integration.md`](ide-integration.md) — how IDE integrations consume the cascade
+- [`docs/lifecycle.md`](lifecycle.md) — pipeline / CI surface

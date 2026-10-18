@@ -363,4 +363,4 @@ Cost: ~2 engineer-sprints across S1–S3. The compile-time linter alone (S1) is 
 - [`docs/strictness-levels.md`](strictness-levels.md) — strictness ladder requirements
 - [`docs/evaluation.md`](evaluation.md) — eval module
 - [`docs/bbsctl-roadmap.md`](bbsctl-roadmap.md) — prioritized planned features
-- [`docs/skill-lifecycle-framework-whitepaper.md`](skill-lifecycle-framework-whitepaper.md) — lifecycle context
+- [`docs/lifecycle.md`](lifecycle.md) — pipeline stages

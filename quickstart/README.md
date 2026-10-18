@@ -49,9 +49,8 @@ No marketplace was set up. No signature was generated. No ownership document was
 | If you want to... | Read |
 |---|---|
 | Understand the strictness ladder | [`../docs/strictness-levels.md`](../docs/strictness-levels.md) |
-| Share a skill with your team | [`../docs/recipes/share-with-team.md`](../docs/recipes/share-with-team.md) |
-| Ship a skill to production | [`../docs/recipes/ship-to-org.md`](../docs/recipes/ship-to-org.md) |
-| See more skill patterns | [`../docs/design-patterns.md`](../docs/design-patterns.md) |
+| Run the lifecycle pipeline | [`../docs/recipes/how-to-run-pipeline.md`](../docs/recipes/how-to-run-pipeline.md) |
+| Publish a skill | [`../docs/recipes/how-to-publish.md`](../docs/recipes/how-to-publish.md) |
 | Diagnose an error | [`../docs/troubleshooting.md`](../docs/troubleshooting.md) |
 
 ## The CI smoke test
