@@ -57,7 +57,9 @@ def test_converter_validation_success(tmp_path: Path) -> None:
     assert plugin_json["keywords"] == ["Devops", "Kubernetes"]
     assert "j-doe" in plugin_json["contributors"]
     assert "a-developer" in plugin_json["contributors"]
-    assert plugin_json["skills"] == ["./skills/cluster-debug/SKILL.md"]
+    # Claude Code rejects a SKILL.md file path in `skills` and already scans
+    # `skills/` by default, so the converter must not write the key.
+    assert "skills" not in plugin_json
 
     # Test convert to marketplace.json entry
     entry = converter.convert_to_marketplace_entry()

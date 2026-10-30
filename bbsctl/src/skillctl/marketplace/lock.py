@@ -10,7 +10,7 @@ Format (YAML, v1 per ADR 0011):
       - name: my-skill
         version: 0.1.0
         strictness: team
-        digest: sha256:...           # SHA-256 of the plugin bundle
+        digest: sha256:...           # SHA-256 over every shipped file (digest_plugin_dir)
         source: ./my-team-marketplace#my-skill@0.1.0
 
 `bbsctl install` is deterministic given lock + marketplace refs.
@@ -20,10 +20,13 @@ Format (YAML, v1 per ADR 0011):
 from __future__ import annotations
 
 import hashlib
+import stat
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from ruamel.yaml import YAML
+
+from .bundle import _sha256_file, _walk
 
 _LOCKFILE_NAME = "skills.lock"
 _LOCKFILE_VERSION = 1
@@ -156,17 +159,23 @@ def write_lock(lock: LockFile, project_dir: Path) -> Path:
 
 
 def digest_plugin_dir(plugin_dir: Path) -> str:
-    """Compute a SHA-256 digest of a plugin directory's stable files.
+    """Compute a SHA-256 digest of every file a plugin directory ships.
 
-    Hashes the content of SKILL.md, skill.yaml, and plugin.json (if present)
-    in deterministic order. Suitable for lockfile integrity checks.
+    Walks the same files as `bundle.lock` (skipping the lock, the signature,
+    and cruft such as `.git/`), so a change to any skill file, script, or
+    executable bit changes the digest. The digest is the SHA-256 of one line
+    per file, sorted by path in byte order:
+
+        <sha256 of file> <x if owner-executable, else -> <posix path>\\n
     """
+    entries: list[tuple[bytes, str]] = []
+    for path in _walk(plugin_dir):
+        rel = path.relative_to(plugin_dir).as_posix()
+        mode = "x" if path.stat().st_mode & stat.S_IXUSR else "-"
+        entries.append((rel.encode("utf-8"), f"{_sha256_file(path)} {mode} {rel}\n"))
     h = hashlib.sha256()
-    for fname in sorted(["SKILL.md", "skill.yaml", ".claude-plugin/plugin.json"]):
-        p = plugin_dir / fname
-        if p.exists():
-            h.update(fname.encode())
-            h.update(p.read_bytes())
+    for _, line in sorted(entries):
+        h.update(line.encode("utf-8"))
     return f"sha256:{h.hexdigest()}"
 
 
