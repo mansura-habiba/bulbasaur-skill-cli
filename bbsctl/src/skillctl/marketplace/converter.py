@@ -283,10 +283,8 @@ class ManifestConverter:
         if contributors:
             plugin_json["contributors"] = contributors
 
-        # Component Routing: If type: skill, point to SKILL.md
-        asset_type = manifest.get("type", "skill")
-        if asset_type == "skill":
-            plugin_json["skills"] = [f"./skills/{raw_name}/SKILL.md"]
+        # No `skills` key: Claude Code already scans `skills/<name>/SKILL.md`,
+        # and it rejects a SKILL.md file path in `skills` (directories only).
 
         # Merge hooks and servers if present
         hooks = self.emit_hooks_config(name)

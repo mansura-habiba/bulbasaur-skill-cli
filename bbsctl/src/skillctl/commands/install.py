@@ -380,11 +380,33 @@ def _install_plugin(plugin, *, mp_ref: str, cache_dir: Path) -> bool:
         )
         return False
     import shutil
-    dst = cache_dir / plugin.name
-    if dst.exists():
-        shutil.rmtree(dst)
-    shutil.copytree(plugin_dir, dst)
-    return True
+    import tempfile
+    # Copy into a temp dir first and verify against the pinned digest, so a
+    # plugin that changed since `bbsctl add` never replaces the cache entry.
+    staging = Path(tempfile.mkdtemp(prefix=f".{plugin.name}.", dir=str(cache_dir)))
+    try:
+        candidate = staging / plugin.name
+        shutil.copytree(plugin_dir, candidate)
+        actual = digest_plugin_dir(candidate)
+        if actual != plugin.digest:
+            emit(
+                FrameworkError(
+                    summary=f"digest mismatch for `{plugin.name}`; not installed",
+                    detail=f"skills.lock: {plugin.digest}\nmarketplace: {actual}",
+                    fix=(
+                        "The plugin changed since it was added. Review the change, then "
+                        f"re-pin it with `bbsctl add {plugin.name}@{mp_ref}`."
+                    ),
+                )
+            )
+            return False
+        dst = cache_dir / plugin.name
+        if dst.exists():
+            shutil.rmtree(dst)
+        candidate.rename(dst)
+        return True
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
 
 
 __all__ = ["register"]
