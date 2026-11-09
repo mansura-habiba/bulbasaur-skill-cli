@@ -5,9 +5,9 @@ The CI workflow .github/workflows/governance.yml validates that every section be
 
 ## Task card
 
-**Closes** # <!-- issue number; required -->
+Closes # <!-- required only if this PR changes .governance/ or tests/contract/ -->
 
-**Parent capability:** <!-- e.g. .governance/capabilities/skill-registry.yaml; required -->
+**Parent capability:** <!-- e.g. .governance/capabilities/skill-registry.yaml; required with a task card -->
 
 ## What changed (one line)
 
