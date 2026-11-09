@@ -3,7 +3,7 @@ requires = ["hatchling>=1.21"]
 build-backend = "hatchling.build"
 
 [project]
-name = "bbsctl"
+name = "skill-pipeline"
 version = "0.1.1"
 description = "Bulbasaur skill framework CLI — design, compile, validate, deploy, and evaluate agent skills like production code."
 readme = "README.md"
@@ -52,7 +52,7 @@ registry = [
 
 # Everything — for CI runners and framework dogfooding.
 full = [
-  "bbsctl[validator,runtime,registry]",
+  "skill-pipeline[validator,runtime,registry]",
 ]
 
 # Development-time tooling — not user-facing.
@@ -62,7 +62,7 @@ dev = [
   "ruff>=0.5",
 ]
 
-# Per ADR 0006: PyPI package name is `bbsctl`; CLI binary is `bbsctl`;
+# PyPI distribution name is `skill-pipeline`; CLI binary remains `bbsctl`;
 # Python module remains `skillctl` (internal import path, unchanged).
 # bbsctl lifecycle is NOT a second binary — it is the lifecycle package behind
 # `bbsctl pipeline` / `bbsctl doctor` / `bbsctl approve` / `bbsctl verify`.

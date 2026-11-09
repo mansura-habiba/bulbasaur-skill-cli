@@ -20,11 +20,11 @@ Install, configure, and run every command. Read top-to-bottom for the five-minut
 Install `uv` if you don't have it, then:
 
 ```bash
-uvx bbsctl new hello-skill
+uvx --from skill-pipeline bbsctl new hello-skill
 cd hello-skill
-uvx bbsctl compile
-uvx bbsctl run
-uvx bbsctl publish
+uvx --from skill-pipeline bbsctl compile
+uvx --from skill-pipeline bbsctl run
+uvx --from skill-pipeline bbsctl publish
 ```
 
 That scaffolds a skill, compiles it, activates it against the mock runtime, and publishes a marketplace directory next to it that stock Claude Code accepts via `/plugin marketplace add ./bulbasaur-marketplace`.
@@ -54,24 +54,24 @@ uv python install 3.11
 **Trial, no install** — fastest way to evaluate:
 
 ```bash
-uvx bbsctl <command>
+uvx --from skill-pipeline bbsctl <command>
 ```
 
-`uvx` downloads `bbsctl` into a transient cache and runs it. Nothing lands in your project. Good for evaluation and one-off runs.
+`uvx` downloads the `skill-pipeline` package into a transient cache and runs the `bbsctl` entry point. Nothing lands in your project. Good for evaluation and one-off runs.
 
 **Project install** — recommended for any real use:
 
 ```bash
-uv add bbsctl
+uv add skill-pipeline
 bbsctl <command>
 ```
 
-`bbsctl` becomes a project dependency in your `pyproject.toml`. Reproducible across machines once you commit `uv.lock`.
+`skill-pipeline` becomes a project dependency in your `pyproject.toml` and provides the `bbsctl` CLI. Reproducible across machines once you commit `uv.lock`.
 
 **Pip install** — for non-`uv` projects:
 
 ```bash
-pip install bbsctl
+pip install skill-pipeline
 ```
 
 Works but `uv` is canonical for the rest of this guide.
@@ -81,16 +81,16 @@ Works but `uv` is canonical for the rest of this guide.
 The base install is stdlib-only (plus `ruamel.yaml`). Heavier dependencies opt in:
 
 ```bash
-uv add 'bbsctl[validator]'    # Phase 3 validator suite
-uv add 'bbsctl[runtime]'      # OpenTelemetry, real runtime adapters
-uv add 'bbsctl[registry]'     # Sigstore signing, OCI publish
-uv add 'bbsctl[full]'         # everything
+uv add 'skill-pipeline[validator]'    # Phase 3 validator suite
+uv add 'skill-pipeline[runtime]'      # OpenTelemetry, real runtime adapters
+uv add 'skill-pipeline[registry]'     # Sigstore signing, OCI publish
+uv add 'skill-pipeline[full]'         # everything
 ```
 
-For development on `bbsctl` itself:
+For development on this repo itself:
 
 ```bash
-uv add 'bbsctl[dev]'          # pytest, ruff
+uv add --editable './bbsctl[dev]'     # pytest, ruff (local path)
 ```
 
 ### Verifying the install
@@ -590,11 +590,11 @@ Writes the lockfile based on the current entries; does not install. Useful after
 ### Recipe A — solo developer, local strictness, five-minute path
 
 ```bash
-uvx bbsctl new hello-skill
+uvx --from skill-pipeline bbsctl new hello-skill
 cd hello-skill
-uvx bbsctl compile
-uvx bbsctl run
-uvx bbsctl publish
+uvx --from skill-pipeline bbsctl compile
+uvx --from skill-pipeline bbsctl run
+uvx --from skill-pipeline bbsctl publish
 
 # In Claude Code:
 # /plugin marketplace add ./bulbasaur-marketplace
@@ -620,7 +620,7 @@ ollama pull llama3:8b
 Then:
 
 ```bash
-uv add bbsctl
+uv add skill-pipeline
 bbsctl init --strictness team --marketplace ./team-marketplace
 
 bbsctl new mq-restarter --strictness team
@@ -713,7 +713,7 @@ jobs:
       - run: uv python install 3.11
 
       - name: Install
-        run: uv add bbsctl
+        run: uv add skill-pipeline
 
       - name: Compile
         run: bbsctl compile --output json > compile-report.json

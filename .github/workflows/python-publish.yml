@@ -8,14 +8,16 @@
 # Tag pushes intentionally do NOT publish: creating a GitHub Release from a tag
 # would otherwise fire both `release` and `push` and double-upload the same version.
 #
-# Setup (one-time on PyPI):
+# Setup (one-time on PyPI, pending publisher until first successful upload):
 #   1. Create GitHub Environment named `pypi` (optional reviewers / wait timer).
-#   2. On https://pypi.org/manage/project/bbsctl/settings/publishing/
-#      add a Trusted Publisher:
+#   2. On https://pypi.org/manage/account/publishing/ add a pending Trusted Publisher:
+#        PyPI project name: skill-pipeline
 #        Owner: mansura-habiba
 #        Repository: bulbasaur-skill-cli
 #        Workflow: python-publish.yml
 #        Environment: pypi
+#   After first upload, project settings live at:
+#   https://pypi.org/manage/project/skill-pipeline/settings/publishing/
 name: Release Python Package
 
 on:
@@ -95,7 +97,7 @@ jobs:
       contents: read
     environment:
       name: pypi
-      url: https://pypi.org/p/bbsctl
+      url: https://pypi.org/p/skill-pipeline
 
     steps:
       - name: Retrieve release distributions

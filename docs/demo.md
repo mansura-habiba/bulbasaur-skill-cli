@@ -14,11 +14,11 @@ A live demo script covering two use cases. Every command has been verified end-t
 > make build            # builds wheel into bbsctl/dist/
 >
 >
-> ## export BBSCTL_WHEEL="../bbsctl/dist/bbsctl-0.1.0-py3-none-any.whl"
+> ## export BBSCTL_WHEEL="../bbsctl/dist/skill_pipeline-0.1.1-py3-none-any.whl"
 >
 > # Pick a clean demo directory
 > mkdir -p ~/bbsctl-demo && cd ~/bbsctl-demo
-> export BBSCTL_WHEEL="$PWD/bbsctl/dist/bbsctl-0.1.0-py3-none-any.whl"
+> export BBSCTL_WHEEL="$PWD/bbsctl/dist/skill_pipeline-0.1.1-py3-none-any.whl"
 > ```
 >
 > Don't pre-run anything else. The whole point is the audience watches the wall clock.
