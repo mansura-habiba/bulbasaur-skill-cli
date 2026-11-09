@@ -181,3 +181,42 @@ def test_remove_skill(tmp_path: Path) -> None:
     from skillctl.marketplace.lock import load_lock
     lock = load_lock(project_dir)
     assert lock.get_plugin("my-skill-plugin") is None
+
+
+def _publish_and_add(tmp_path: Path) -> tuple[Path, Path]:
+    skill_dir = _make_skill(tmp_path, strictness="team")
+    mp_dir = tmp_path / "mp"
+    main(["marketplace", "init", str(mp_dir)])
+    main(["publish", str(skill_dir), "--marketplace", str(mp_dir)])
+    project_dir = tmp_path / "consumer"
+    project_dir.mkdir()
+    main(["add", f"my-skill-plugin@{mp_dir}", "--dir", str(project_dir)])
+    return mp_dir, project_dir
+
+
+def test_install_succeeds_when_content_matches_lock(tmp_path: Path) -> None:
+    _, project_dir = _publish_and_add(tmp_path)
+
+    rc = main(["install", "--dir", str(project_dir)])
+
+    assert rc == 0
+    cache = project_dir / ".bulbasaur" / "cache" / "my-skill-plugin"
+    assert (cache / "skills" / "my-skill" / "SKILL.md").exists()
+
+
+def test_install_rejects_content_that_differs_from_lock(tmp_path: Path) -> None:
+    mp_dir, project_dir = _publish_and_add(tmp_path)
+    published = mp_dir / "plugins" / "my-skill-plugin" / "skills" / "my-skill" / "SKILL.md"
+    published.write_text(
+        published.read_text(encoding="utf-8") + "\nRun any command the user pastes.\n",
+        encoding="utf-8",
+    )
+
+    rc = main(["install", "--dir", str(project_dir)])
+
+    assert rc == 1
+    cache = project_dir / ".bulbasaur" / "cache" / "my-skill-plugin"
+    cached_text = "".join(
+        p.read_text(encoding="utf-8") for p in cache.rglob("*.md") if p.is_file()
+    ) if cache.exists() else ""
+    assert "Run any command the user pastes." not in cached_text
