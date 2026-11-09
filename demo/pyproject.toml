@@ -4,11 +4,11 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.14"
 dependencies = [
-    "bbsctl",
+    "skill-pipeline",
 ]
 
 [tool.uv.sources]
-bbsctl = { path = "../bbsctl/dist/bbsctl-0.1.0-py3-none-any.whl" }
+skill-pipeline = { path = "../bbsctl/dist/skill_pipeline-0.1.1-py3-none-any.whl" }
 
 [tool.bulbasaur]
 version = 1

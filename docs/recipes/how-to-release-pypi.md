@@ -1,17 +1,31 @@
-# Recipe: release bbsctl to PyPI
+# Recipe: release skill-pipeline to PyPI
 
-Publish the `bbsctl` wheel from this repo using GitHub Actions + PyPI Trusted Publishing.
+Publish the `skill-pipeline` wheel (CLI entry point `bbsctl`) from this repo using GitHub Actions + PyPI Trusted Publishing.
 
 ## One-time setup
 
 1. Create a GitHub Environment named **`pypi`** (optional protection rules).
-2. On [PyPI → bbsctl → Publishing](https://pypi.org/manage/project/bbsctl/settings/publishing/), add a Trusted Publisher:
+2. **Before the first upload** the project does not exist yet. Add a *pending* Trusted Publisher under your account (not a project page):
+   [PyPI → Your account → Publishing](https://pypi.org/manage/account/publishing/)
+   - PyPI project name: `skill-pipeline` (must match `[project].name` in `bbsctl/pyproject.toml`)
    - Owner: `mansura-habiba`
    - Repository: `bulbasaur-skill-cli`
-   - Workflow name: `python-publish.yml`
-   - Environment name: `pypi`
+   - Workflow name: `python-publish.yml` (filename only)
+   - Environment name: `pypi` (required: the workflow sets `environment: pypi`)
+3. After the first successful upload, the pending publisher converts into a normal one and creates [pypi.org/p/skill-pipeline](https://pypi.org/p/skill-pipeline). Later releases use the project Publishing settings.
 
 No PyPI API token is stored in GitHub secrets.
+
+### If the publisher stays pending
+
+The pending form only clears after a successful Trusted Publishing upload whose OIDC claims match every field above. Typical blockers:
+
+- Package name in the pending form ≠ `skill-pipeline` in the built METADATA (earlier miss: pending was `skill-manage` while METADATA was still `bbsctl`)
+- Environment blank on PyPI while the workflow uses `pypi` (or the reverse)
+- Workflow filename typo (must be exactly `python-publish.yml`)
+- Last publish job failed before upload finished (check the Actions run log)
+
+Fix a wrong pending name by deleting it and adding a new pending publisher with project name `skill-pipeline` and the GitHub fields above. Do not leave a second pending publisher pointing at a different project name.
 
 ## Publish a release
 
@@ -41,7 +55,7 @@ The publish job uses `skip-existing: true` and a `concurrency:` group keyed on t
 ## Verify
 
 ```bash
-pip install -U bbsctl
+pip install -U skill-pipeline
 bbsctl --version
 ```
 

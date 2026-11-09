@@ -12,17 +12,17 @@ The five-minute promise — from zero to running skill — measured wall-clock a
 ## The flow
 
 ```bash
-# 1. Trial without installing — uvx runs bbsctl in an ephemeral env
-uvx bbsctl new hello-skill
+# 1. Trial without installing — uvx runs bbsctl from the skill-pipeline package
+uvx --from skill-pipeline bbsctl new hello-skill
 cd hello-skill
-uvx bbsctl compile
-uvx bbsctl run
+uvx --from skill-pipeline bbsctl compile
+uvx --from skill-pipeline bbsctl run
 ```
 
 Or, to install into a project:
 
 ```bash
-uv add bbsctl
+uv add skill-pipeline
 bbsctl new hello-skill
 cd hello-skill
 bbsctl compile

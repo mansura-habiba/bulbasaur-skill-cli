@@ -15,7 +15,7 @@ Two workflows:
 
 ```bash
 # From PyPI (when published)
-uv add bbsctl
+uv add skill-pipeline
 
 # From source (development)
 make install

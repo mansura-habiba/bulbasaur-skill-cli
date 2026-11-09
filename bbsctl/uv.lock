@@ -339,43 +339,6 @@ wheels = [
 ]
 
 [[package]]
-name = "bbsctl"
-version = "0.1.1"
-source = { editable = "." }
-dependencies = [
-    { name = "ruamel-yaml" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-]
-
-[package.dev-dependencies]
-engines = [
-    { name = "mellea-skills-compiler" },
-    { name = "skillspector", marker = "python_full_version >= '3.12'" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "bbsctl", extras = ["validator", "runtime", "registry"], marker = "extra == 'full'" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
-    { name = "ruamel-yaml", specifier = ">=0.18,<1.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
-]
-provides-extras = ["validator", "runtime", "registry", "full", "dev"]
-
-[package.metadata.requires-dev]
-engines = [
-    { name = "mellea-skills-compiler", git = "https://github.com/generative-computing/mellea-skills-compiler?rev=1538a0870ab9868ff5252c96722ba3827a4345ab" },
-    { name = "skillspector", marker = "python_full_version >= '3.12'", git = "https://github.com/NVIDIA/SkillSpector?rev=cf5cac7ba5c756a6e0ebf52dc9763f49422f889f" },
-]
-
-[[package]]
 name = "blessed"
 version = "1.51.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1280,8 +1243,8 @@ name = "httpcore2"
 version = "2.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "h11" },
-    { name = "truststore" },
+    { name = "h11", marker = "sys_platform != 'emscripten'" },
+    { name = "truststore", marker = "sys_platform != 'emscripten'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cb/f3/1db7aa2bc2524062192bb0e0323969492d1883152a232fe36eea65f4e35c/httpcore2-2.13.1.tar.gz", hash = "sha256:e0aa977abe17e69a3b820a24542a6fa88702676d83880b8d194dcd18408e5103", size = 68071, upload-time = "2026-09-23T07:47:22.372Z" }
 wheels = [
@@ -3861,6 +3824,43 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload-time = "2024-12-04T17:35:28.174Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
+]
+
+[[package]]
+name = "skill-pipeline"
+version = "0.1.1"
+source = { editable = "." }
+dependencies = [
+    { name = "ruamel-yaml" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
+
+[package.dev-dependencies]
+engines = [
+    { name = "mellea-skills-compiler" },
+    { name = "skillspector", marker = "python_full_version >= '3.12'" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
+    { name = "ruamel-yaml", specifier = ">=0.18,<1.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
+    { name = "skill-pipeline", extras = ["validator", "runtime", "registry"], marker = "extra == 'full'" },
+]
+provides-extras = ["validator", "runtime", "registry", "full", "dev"]
+
+[package.metadata.requires-dev]
+engines = [
+    { name = "mellea-skills-compiler", git = "https://github.com/generative-computing/mellea-skills-compiler?rev=1538a0870ab9868ff5252c96722ba3827a4345ab" },
+    { name = "skillspector", marker = "python_full_version >= '3.12'", git = "https://github.com/NVIDIA/SkillSpector?rev=cf5cac7ba5c756a6e0ebf52dc9763f49422f889f" },
 ]
 
 [[package]]
