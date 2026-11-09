@@ -1,0 +1,261 @@
+# yaml-language-server: $schema=../acceptance.schema.yaml
+#
+# Worked example — the acceptance spec for skill validation.
+# A human authored this. AI implemented the tests in tests/contract/test_skill_validation.py.
+
+id: skill-validation
+capability: .governance/capabilities/skill-registry.yaml
+scope: |
+  Validation of a skill submission against the agentskills.io public spec plus the bulbasaur-skill-cli
+  enterprise overlay. Covers structural validation (schema), semantic validation (rules), and the
+  rejection path with structured error codes. Does not cover: post-validation persistence, signing,
+  or marketplace publication.
+
+authored_by:
+  human: "@mansura"
+  reviewed_by: "@senior-engineer-handle"
+  ai_assistance: forbidden
+
+status: draft
+# ratified_at: required only when status >= ratified. Mark `ratified` once tests below exist.
+
+# -----------------------------------------------------------------------------
+# Cases — one observable behavior each
+# -----------------------------------------------------------------------------
+
+cases:
+
+  - id: minimum-valid-skill-accepted
+    kind: positive
+    priority: critical
+    description: A skill with only the agentskills.io-required fields is accepted.
+    given:
+      state: "registry empty, validator chain at default config"
+      inputs:
+        - name: skill
+          shape: "agentskills.io public spec, minimum fields"
+          value:
+            name: "hello-skill"
+            description: "Says hello in five languages."
+    when:
+      action: "skillctl.validate"
+      with:
+        skill: "{{inputs.skill}}"
+    then:
+      outcome: returns
+      assertions:
+        - statement: "result.status equals 'accepted'"
+          rationale: "Minimum-valid input is the canonical positive path."
+        - statement: "result.errors is an empty list"
+          rationale: "No errors should appear when input is valid."
+      must_not:
+        - "Emit any skill.rejected audit event."
+    evidence:
+      test_id: "tests/contract/test_skill_validation.py::test_minimum_valid_skill_accepted"
+      fixture: "tests/fixtures/spec-v1/minimum-valid-skill/SKILL.md"
+    forbidden_implementations:
+      - "No mocking of skillctl.validate — call the real function."
+      - "No asserting on internal validator state — assert on the return value only."
+
+  - id: missing-name-rejected
+    kind: negative
+    priority: critical
+    description: A skill missing the required `name` field is rejected with a structured error.
+    given:
+      inputs:
+        - name: skill
+          value:
+            description: "I forgot to set a name."
+    when:
+      action: "skillctl.validate"
+      with:
+        skill: "{{inputs.skill}}"
+    then:
+      outcome: rejects
+      assertions:
+        - statement: "result.status equals 'rejected'"
+        - statement: "result.errors contains an error with code 'AGS-001' (missing required field)"
+          rationale: "Error codes are part of the public contract — clients depend on them."
+        - statement: "result.errors[0].field equals 'name'"
+      must_not:
+        - "Raise an unhandled exception — validation must always return a structured result."
+    evidence:
+      test_id: "tests/contract/test_skill_validation.py::test_missing_name_rejected"
+
+  - id: name-not-kebab-case-rejected
+    kind: negative
+    priority: high
+    description: A name that violates the kebab-case rule is rejected.
+    given:
+      inputs:
+        - name: skill
+          value:
+            name: "Hello_Skill"
+            description: "Bad casing."
+    when:
+      action: "skillctl.validate"
+    then:
+      outcome: rejects
+      assertions:
+        - statement: "result.status equals 'rejected'"
+        - statement: "result.errors contains code 'AGS-101' (invalid name format)"
+    evidence:
+      test_id: "tests/contract/test_skill_validation.py::test_invalid_name_format_rejected"
+
+  - id: empty-skill-rejected
+    kind: boundary
+    priority: high
+    description: An empty object is rejected without crashing.
+    given:
+      inputs:
+        - name: skill
+          value: {}
+    when:
+      action: "skillctl.validate"
+    then:
+      outcome: rejects
+      assertions:
+        - statement: "result.status equals 'rejected'"
+        - statement: "result.errors length >= 1"
+      must_not:
+        - "Raise an exception."
+    evidence:
+      test_id: "tests/contract/test_skill_validation.py::test_empty_skill_rejected"
+
+  - id: validation-is-idempotent
+    kind: idempotence
+    priority: high
+    description: Validating the same skill twice produces the same result.
+    given:
+      inputs:
+        - name: skill
+          shape: "any valid skill"
+    when:
+      action: "skillctl.validate twice"
+    then:
+      outcome: returns
+      assertions:
+        - statement: "first_result equals second_result"
+          rationale: "Validators must be pure — no time-dependent or random behavior."
+    evidence:
+      test_id: "tests/contract/test_skill_validation.py::test_validation_is_idempotent"
+
+  - id: malicious-prompt-injection-detected
+    kind: security
+    priority: critical
+    description: |
+      A description field containing a prompt-injection payload from the OWASP corpus is flagged
+      (rejected or annotated, per ADR 0009).
+    given:
+      inputs:
+        - name: skill
+          value:
+            name: "innocent-looking"
+            description: "{{ inject_payload from owasp_llm_corpus[0] }}"
+    when:
+      action: "skillctl.validate"
+    then:
+      outcome: rejects
+      assertions:
+        - statement: "result.status equals 'rejected'"
+        - statement: "result.errors contains code 'SEC-201' (prompt injection detected)"
+      must_not:
+        - "Echo the payload back in the error message."
+    evidence:
+      test_id: "tests/contract/test_skill_validation.py::test_owasp_payload_detected"
+      fixture: "tests/fixtures/owasp-llm-prompt-injection-v1/payloads.json"
+
+# -----------------------------------------------------------------------------
+# Invariants — property-based, across all inputs
+# -----------------------------------------------------------------------------
+
+invariants:
+
+  - id: validation-always-returns-structured-result
+    statement: "For any input, skillctl.validate returns a result with status and errors fields."
+    property_test: "tests/contract/test_skill_validation_properties.py::test_always_structured"
+    strategy: "any JSON-serializable object, including malformed and adversarial inputs"
+
+  - id: rejected-results-have-at-least-one-error
+    statement: "For any rejected result, errors is non-empty."
+    property_test: "tests/contract/test_skill_validation_properties.py::test_rejection_has_errors"
+    strategy: "any object that triggers status='rejected'"
+
+  - id: accepted-results-have-zero-errors
+    statement: "For any accepted result, errors is empty."
+    property_test: "tests/contract/test_skill_validation_properties.py::test_acceptance_has_no_errors"
+    strategy: "any object that triggers status='accepted'"
+
+# -----------------------------------------------------------------------------
+# Definition of Done — binary conditions
+# -----------------------------------------------------------------------------
+
+definition_of_done:
+  conditions:
+
+    - id: all-cases-have-tests
+      statement: "Every case has a test_id pointing to a test that exists and passes."
+      verifiable_by: contract_test
+      evidence_ref: "tests/contract/test_acceptance_validates.py::test_every_case_has_a_test"
+
+    - id: all-invariants-have-property-tests
+      statement: "Every invariant has a property_test pointing to a Hypothesis test that passes."
+      verifiable_by: contract_test
+      evidence_ref: "tests/contract/test_acceptance_validates.py::test_every_invariant_has_property_test"
+
+    - id: schema-validation-passes
+      statement: "This file validates against acceptance.schema.yaml."
+      verifiable_by: schema_validation
+      evidence_ref: ".governance/acceptance.schema.yaml"
+
+    - id: mutation-score-meets-threshold
+      statement: "Mutation testing on skillctl.validate scores >= 0.85."
+      verifiable_by: mutation_score
+      evidence_ref: "reports/mutmut/skill-validation.json"
+
+# -----------------------------------------------------------------------------
+# Success criteria — measurable thresholds
+# -----------------------------------------------------------------------------
+
+success_criteria:
+
+  - id: validate-latency
+    metric: "p95 latency for skillctl.validate on the minimum-valid-skill fixture"
+    threshold: "< 25ms"
+    measured_by: "pytest-benchmark report in CI"
+    failure_mode: "Validation is on the hot path of every registration; slowdowns block onboarding."
+
+  - id: validator-coverage
+    metric: "Branch coverage of skillctl.agentskills.rules"
+    threshold: ">= 90%"
+    measured_by: "coverage.py in CI"
+    failure_mode: "Untested branches are where regressions live."
+
+# -----------------------------------------------------------------------------
+# Forbidden behaviors — must NEVER happen
+# -----------------------------------------------------------------------------
+
+forbidden_behaviors:
+
+  - id: never-throw-on-validation
+    statement: "skillctl.validate must never raise an unhandled exception, regardless of input."
+    tested_by: "tests/contract/test_skill_validation_properties.py::test_no_exceptions_ever"
+
+  - id: never-echo-injection-payload
+    statement: "Error messages must never include verbatim text from a detected injection payload."
+    tested_by: "tests/contract/test_skill_validation.py::test_payload_not_echoed"
+
+  - id: never-mutate-input
+    statement: "skillctl.validate must not mutate its input argument."
+    tested_by: "tests/contract/test_skill_validation_properties.py::test_input_not_mutated"
+
+# -----------------------------------------------------------------------------
+# Test quality gates — guards against AI anti-patterns
+# -----------------------------------------------------------------------------
+
+test_quality_gates:
+  every_assertion_maps_to_case_id: true
+  no_implementation_strings_in_assertions: true
+  mutation_score_min: 0.85
+  no_mocking_of_unit_under_test: true
+  coverage_must_be_intentional: true

@@ -1,0 +1,413 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+#
+# acceptance.schema.yaml — the structured acceptance specification
+#
+# THIS IS THE ANSWER TO "AI WRITES TESTS THAT PLEASE THE CODE."
+#
+# The spec is structured (not prose), human-authored (AI is forbidden from authoring), and
+# each case has a typed kind (positive / negative / invariant / boundary / regression / performance /
+# security). AI implements test code against this spec — it cannot author the spec itself, and
+# tests that don't trace back to a case_id fail the gate.
+#
+# Two-layer separation:
+#   1. acceptance.yaml — what behavior is required. Human-authored. AI forbidden.
+#   2. tests/contract/*.py — the tests that prove the behavior. AI-allowed, must reference case_id.
+
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://bulbasaur-skill-cli/.governance/acceptance.schema.yaml"
+title: "Acceptance Specification"
+type: object
+additionalProperties: false
+
+required:
+  - id
+  - capability
+  - scope
+  - cases
+  - definition_of_done
+
+properties:
+
+  # -------------------------------------------------------------------------
+  # Identity
+  # -------------------------------------------------------------------------
+
+  id:
+    type: string
+    description: kebab-case identifier. Filename matches.
+    pattern: "^[a-z][a-z0-9-]+[a-z0-9]$"
+    examples: ["skill-validation", "policy-evaluation", "evidence-signing"]
+
+  capability:
+    type: string
+    description: Path to the parent capability spec. Must resolve.
+    examples: [".governance/capabilities/skill-registry.yaml"]
+
+  scope:
+    type: string
+    minLength: 80
+    description: |
+      What behavior this acceptance spec covers. minLength: 80 enforces real description.
+      Not "validates skills" — describe the slice of behavior precisely.
+
+  authored_by:
+    type: object
+    required: [human]
+    additionalProperties: false
+    properties:
+      human:
+        type: string
+        description: Required. The senior/lead who authored this. AI is not eligible.
+      reviewed_by:
+        type: string
+      ai_assistance:
+        type: string
+        enum: [none, draft_only, forbidden]
+        default: forbidden
+        description: |
+          Whether AI was allowed to help. `forbidden` is default and recommended — AI implements
+          tests against this spec, but does not author the spec. `draft_only` permits AI to draft
+          a strawman that a human extensively edited.
+
+  # -------------------------------------------------------------------------
+  # Test cases — the structured spec
+  # -------------------------------------------------------------------------
+
+  cases:
+    type: array
+    minItems: 1
+    description: |
+      Each case is one observable behavior. Cases have a typed `kind` so the suite can be analyzed
+      (e.g. "this spec has no negative cases — incomplete coverage of the failure surface").
+    items:
+      type: object
+      additionalProperties: false
+      required: [id, kind, given, when, then]
+      properties:
+
+        id:
+          type: string
+          description: kebab-case ID. Referenced by tests via comments or decorators.
+          pattern: "^[a-z][a-z0-9-]+[a-z0-9]$"
+
+        kind:
+          type: string
+          enum:
+            - positive       # canonical happy path
+            - negative       # input/state that must be rejected, blocked, or raise
+            - invariant      # property that must hold across all inputs (property-based)
+            - boundary       # edge values (0, max, empty, unicode, etc.)
+            - regression     # specific past bug must not recur
+            - performance    # timing / throughput threshold
+            - security       # auth, authz, sanitization, injection
+            - idempotence    # same input twice produces same result
+          description: |
+            Type of behavior under test. The validator counts case kinds to surface coverage gaps —
+            a capability with no negative cases is incomplete by definition.
+
+        priority:
+          type: string
+          enum: [critical, high, normal, low]
+          default: normal
+
+        description:
+          type: string
+          description: One-line plain-language summary. For humans skimming the spec.
+
+        given:
+          type: object
+          description: Preconditions — system state and inputs before the action.
+          additionalProperties: false
+          properties:
+            state:
+              type: string
+              description: Named precondition state. Free text, but consistent within a spec.
+            inputs:
+              type: array
+              description: Structured inputs to the action.
+              items:
+                type: object
+                required: [name]
+                anyOf:
+                  - required: [value]
+                  - required: [shape]
+                properties:
+                  name: { type: string }
+                  value: {}  # any type — string, number, object, array, null
+                  shape:
+                    type: string
+                    description: |
+                      Type/schema reference for the value's shape. Use when describing a class
+                      of inputs ("any valid skill") rather than one literal example.
+
+        when:
+          type: object
+          description: The action being tested.
+          additionalProperties: false
+          required: [action]
+          properties:
+            action:
+              type: string
+              description: Named operation. Should map to a real function/endpoint.
+              examples: ["skillctl.validate", "POST /skills", "registry.upsert"]
+            with:
+              type: object
+              description: Arguments to the action.
+
+        then:
+          type: object
+          description: |
+            Expected outcome. For positive cases, what happens. For negative cases, what is rejected/
+            raised. For invariants, the property that must hold.
+          additionalProperties: false
+          properties:
+            outcome:
+              type: string
+              enum: [returns, raises, rejects, mutates, no_change, emits_event]
+              description: The class of outcome — drives test code generation.
+            value:
+              description: |
+                Expected return value (for `returns`) or expected error code/class (for `raises`/`rejects`).
+            assertions:
+              type: array
+              description: Specific assertions that must hold. Each maps to a single test assertion.
+              items:
+                type: object
+                required: [statement]
+                additionalProperties: false
+                properties:
+                  statement:
+                    type: string
+                    description: e.g. "result.status equals 'rejected'"
+                  rationale:
+                    type: string
+                    description: Why this assertion matters. Helps reviewer + AI understand intent.
+            must_not:
+              type: array
+              description: |
+                Things that MUST NOT happen even when the case succeeds. Catches side-effects.
+                e.g. "no audit event logged when input fails pre-validation"
+              items: { type: string }
+
+        evidence:
+          type: object
+          description: |
+            How this case is proved. Every case must trace to a test or measurement — orphan cases
+            are spec rot.
+          additionalProperties: false
+          properties:
+            test_id:
+              type: string
+              description: |
+                Path to the test that proves this case. Format: `path/to/file.py::test_function`.
+                The test file must contain a comment or decorator referencing this case's id.
+            fixture:
+              type: string
+              description: Path to a fixture file used by the test (if any).
+            metric:
+              type: string
+              description: For performance/security cases — what metric proves the case.
+
+        forbidden_implementations:
+          type: array
+          description: |
+            Patterns the test must NOT use. Catches AI anti-patterns directly.
+            e.g. "no mocking of the function under test", "no asserting on internal state".
+          items: { type: string }
+
+  # -------------------------------------------------------------------------
+  # Invariants — property-based, not example-based
+  # -------------------------------------------------------------------------
+
+  invariants:
+    type: array
+    description: |
+      Properties that hold across ALL inputs, verified by property-based tests (Hypothesis /
+      fast-check). These complement example-based cases — examples prove specific points,
+      invariants prove ranges.
+    items:
+      type: object
+      required: [id, statement, property_test]
+      additionalProperties: false
+      properties:
+        id: { type: string, pattern: "^[a-z][a-z0-9-]+[a-z0-9]$" }
+        statement:
+          type: string
+          description: The invariant in one sentence. "For any X, P(X)."
+        property_test:
+          type: string
+          description: Path to the property-based test that proves this invariant.
+        strategy:
+          type: string
+          description: |
+            Hypothesis strategy name or input domain description. Tells AI what input space to
+            generate. e.g. "valid skill_ids", "any string", "non-negative integers".
+
+  # -------------------------------------------------------------------------
+  # Definition of Done — binary completion conditions
+  # -------------------------------------------------------------------------
+
+  definition_of_done:
+    type: object
+    required: [conditions]
+    additionalProperties: false
+    description: |
+      Boolean conditions that must hold for the work to be considered complete.
+      Every condition is verifiable — no "looks good", no "feels right."
+    properties:
+      conditions:
+        type: array
+        minItems: 1
+        items:
+          type: object
+          required: [id, statement, verifiable_by]
+          additionalProperties: false
+          properties:
+            id: { type: string, pattern: "^[a-z][a-z0-9-]+[a-z0-9]$" }
+            statement:
+              type: string
+              description: Binary statement — true or false, no spectrum.
+            verifiable_by:
+              type: string
+              enum:
+                - contract_test       # named test in tests/contract/
+                - metric_threshold    # observable metric crosses a threshold
+                - manual_check        # human reviewer confirms — last resort
+                - schema_validation   # passes a named schema
+                - mutation_score      # mutation testing meets threshold
+            evidence_ref:
+              type: string
+              description: |
+                Test ID, metric name, schema path, etc. — concrete pointer to the proof.
+
+  # -------------------------------------------------------------------------
+  # Success criteria — measurable thresholds (perf, quality, coverage)
+  # -------------------------------------------------------------------------
+
+  success_criteria:
+    type: array
+    description: |
+      Measurable thresholds. Tier `org` and higher require at least one performance and one
+      coverage criterion.
+    items:
+      type: object
+      required: [id, metric, threshold, measured_by]
+      additionalProperties: false
+      properties:
+        id: { type: string }
+        metric:
+          type: string
+          description: e.g. "p95 latency for /validate", "mutation score on skillctl.validate"
+        threshold:
+          type: string
+          description: e.g. "< 200ms", ">= 0.85", "== 0"
+        measured_by:
+          type: string
+          description: Tool / report that produces the metric.
+        failure_mode:
+          type: string
+          description: What is degraded if this criterion is not met. Helps reviewers prioritize.
+
+  # -------------------------------------------------------------------------
+  # Forbidden behaviors — critical negatives at the spec level
+  # -------------------------------------------------------------------------
+
+  forbidden_behaviors:
+    type: array
+    description: |
+      Behaviors the system must NEVER exhibit. These are typically security or correctness
+      invariants too important to encode as just a `kind: negative` case. Each must trace to
+      a dedicated test that asserts the behavior is impossible.
+    items:
+      type: object
+      required: [id, statement, tested_by]
+      additionalProperties: false
+      properties:
+        id: { type: string, pattern: "^[a-z][a-z0-9-]+[a-z0-9]$" }
+        statement:
+          type: string
+          description: 'e.g. "Never returns a partial registration result with status=success."'
+        tested_by:
+          type: string
+          description: Test ID that asserts the impossibility.
+
+  # -------------------------------------------------------------------------
+  # Test quality gates — guards against AI test anti-patterns
+  # -------------------------------------------------------------------------
+
+  test_quality_gates:
+    type: object
+    description: |
+      Guardrails specifically targeting AI-generated test anti-patterns. These are enforced by
+      the contract test suite that runs against tests/contract/.
+    additionalProperties: false
+    properties:
+      every_assertion_maps_to_case_id:
+        type: boolean
+        default: true
+        description: |
+          Each test assertion must reference a case_id in a comment or decorator. Tests with
+          orphan assertions fail the gate — they're a tell that AI invented an assertion not
+          in the spec.
+      no_implementation_strings_in_assertions:
+        type: boolean
+        default: true
+        description: |
+          Test assertions must not contain string fragments from the implementation under test.
+          A classic AI tell — the test asserts what the code says, not what the spec demands.
+      mutation_score_min:
+        type: number
+        description: |
+          Minimum mutation score (0.0–1.0). Catches tests that pass against arbitrary code —
+          the AI-generated-tests-please-code anti-pattern, mechanically detected. Recommended:
+          0.8 at tier `team`, 0.9 at `org`.
+      no_mocking_of_unit_under_test:
+        type: boolean
+        default: true
+        description: |
+          Mocks may stand in for collaborators, but never for the function/class under test.
+          AI sometimes mocks the thing it's supposed to test, producing tautologies.
+      coverage_must_be_intentional:
+        type: boolean
+        default: true
+        description: |
+          Each test exists because it proves a case_id. Coverage as a side-effect is fine;
+          coverage as a goal produces noise tests.
+
+  # -------------------------------------------------------------------------
+  # Lifecycle
+  # -------------------------------------------------------------------------
+
+  status:
+    type: string
+    enum: [draft, ratified, deprecating, retired]
+    default: draft
+    description: |
+      `draft` — under authoring. `ratified` — accepted, tests must conform. `deprecating` —
+      being replaced. `retired` — historical only.
+
+  ratified_at:
+    type: string
+    format: date
+    description: ISO date the spec was ratified. Required when status >= ratified.
+
+# -------------------------------------------------------------------------
+# Tier-specific enforcement (validator, not schema)
+# -------------------------------------------------------------------------
+# tier `local`:
+#   - at least 1 case
+# tier `team`:
+#   - at least 1 positive, 1 negative case
+#   - DoD with at least 1 contract_test condition
+#   - test_quality_gates.mutation_score_min >= 0.7
+# tier `org`:
+#   - at least 1 invariant
+#   - DoD includes mutation_score and schema_validation conditions
+#   - 1+ performance and 1+ coverage success_criteria
+#   - test_quality_gates.mutation_score_min >= 0.85
+#   - status must be ratified before tasks reference this spec
+# tier `regulated`:
+#   - test_quality_gates.mutation_score_min >= 0.9
+#   - forbidden_behaviors at least 1
+#   - 1+ security case
+#   - ratified_at within last 12 months

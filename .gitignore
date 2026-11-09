@@ -34,6 +34,9 @@ sample/**/dist/
 # Temp clones / scratch trees
 .tmp-*/
 
+# Local agent / Loom working state (never publish)
+.loom/
+
 # .governance — publish durable framework only; keep working notes local
 .governance/tasks/
 .governance/wiki/

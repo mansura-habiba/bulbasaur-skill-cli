@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../capability-spec.schema.yaml
+#
+# Worked example — the skill-registry capability of bulbasaur-skill-cli itself.
+# Use as a starting point when authoring a new capability spec.
+
+id: skill-registry
+name: "Skill Registry"
+purpose: |
+  The skill-registry is the catalog of every skill bulbasaur-skill-cli knows about. It is the
+  single source of truth that other capabilities (validator, policy-engine, evaluator) read from.
+  If this catalog is wrong, every downstream check is wrong. If this catalog is unavailable,
+  the system stops being able to onboard or update skills. This is the load-bearing data layer
+  of the framework.
+
+tier: team
+
+philosophy_link: ../philosophy.md
+
+contract:
+  inputs:
+    - name: skill_registration_request
+      shape: ".governance/schemas/skill-registration.schema.yaml"
+      description: A request to add a new skill or update an existing one.
+    - name: skill_query
+      shape: "skillctl.types.SkillQuery"
+      description: A read request — search, list, get-by-id.
+  outputs:
+    - name: skill_record
+      shape: "skillctl.types.SkillRecord"
+      description: A normalized record returned to readers. Stable across versions.
+    - name: registration_result
+      shape: "skillctl.types.RegistrationResult"
+      description: pass/fail plus error codes. Never throws on validation errors.
+  invariants:
+    - "Skill IDs are unique across all tiers."
+    - "Registration is idempotent — same request twice produces same record."
+    - "Reads never see partial writes — registration is atomic from the reader's perspective."
+
+tasks_must:
+  pass_contract_tests:
+    - "tests/contract/test_skill_validation.py::test_valid_skill_accepted"
+    - "tests/contract/test_skill_validation.py::test_invalid_skill_rejected"
+    - "tests/contract/test_registry_invariants.py::test_unique_ids"
+    - "tests/contract/test_registry_invariants.py::test_idempotent_registration"
+  preserve_invariants:
+    - "Skill IDs are unique across all tiers."
+    - "Registration is idempotent — same request twice produces same record."
+  use_patterns:
+    - "Factory for storage backends (file / SQLite / Postgres)."
+    - "Validation runs before persistence — never persist invalid records."
+  avoid_dependencies:
+    - "ORMs. Use the existing adapter pattern instead."
+    - "Global singletons. Inject the registry instance."
+
+forbidden:
+  - "Bypassing validation on registration. Always run the full validator chain."
+  - "Direct file-system access from this capability. Use the storage adapter."
+  - "Synchronous network calls from inside registry operations. They block readers."
+
+evidence_requirements:
+  audit_events:
+    - "skill.registered"
+    - "skill.updated"
+    - "skill.rejected"
+  retention_days: 90
+
+runtime_constraints:
+  performance: "p95 < 50ms for skill_query lookups against a 10k-skill catalog."
+  observability: "Every registration emits a structured log with skill_id, tier, validator chain results."
+
+owner:
+  lead: "@mansura"
+  backup: "@senior-engineer-handle"
+
+related_capabilities:
+  - skill-validator
+  - policy-engine
+  - evidence-logger
+
+status: active

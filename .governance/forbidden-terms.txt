@@ -1,0 +1,7 @@
+# Terms that must not be introduced in new PR diffs (case-insensitive).
+# Checked by .github/workflows/governance.yml against added lines only.
+#
+# Prefer generic product language in this public repo.
+OIC
+oic_publish
+--oic

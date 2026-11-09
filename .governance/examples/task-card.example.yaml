@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../task-card.schema.yaml
+#
+# Worked example — a realistic task card for a bulbasaur-skill-cli change.
+# Use as a starting point when filing a new issue. Replace every field, do not leave defaults.
+
+id: BBS-127
+title: "Add minimum-valid-skill fixture to contract test suite"
+type: feature
+tier: team
+
+links:
+  parent_capability: .governance/capabilities/skill-registry.yaml
+  related_issues:
+    - BBS-118
+    - BBS-122
+  depends_on: []
+  design_docs:
+    - docs/lifecycle.md
+
+goal:
+  one_liner: "After this ships, every spec rule has a passing reference fixture in CI."
+  bigger_picture: |
+    Without paired pass/fail fixtures, agentskills rules are enforced but not
+    documented by example. This task adds the "pass" side of the fixture pair.
+    BBS-122 will add the "fail" side.
+  done_looks_like: |
+    A new file tests/fixtures/spec-v1/minimum-valid-skill/SKILL.md exists, conforms to
+    the public agentskills.io spec at minimum, and a contract test asserts that
+    bbsctl validate exits 0 on it. Test is in CI and green.
+
+scope:
+  in_scope:
+    - "Add tests/fixtures/spec-v1/minimum-valid-skill/SKILL.md with exactly the required fields"
+    - "Add tests/contract/test_minimum_valid_skill.py::test_minimum_valid_skill_passes_validation"
+    - "Wire the test into the CI workflow"
+  non_goals:
+    - "Do not add the broken-skill fixture — that is BBS-122"
+    - "Do not change rules.py or the schema — the fixture conforms to the existing schema"
+    - "Do not change the public agentskills.io surface"
+
+acceptance:
+  spec: .governance/acceptance/skill-validation.acceptance.yaml
+  case_ids:
+    - minimum-valid-skill-accepted
+  contract_tests:
+    - "tests/contract/test_skill_validation.py::test_minimum_valid_skill_accepted"
+  manual_checks:
+    - "Reviewer confirms the fixture truly is the minimum — no optional fields included"
+
+non_functional:
+  performance: "n/a — fixture, not runtime code"
+  compatibility: "Fixture lives under spec-v1/ namespace so future spec versions can coexist"
+
+ai_context:
+  required_reading:
+    - .governance/capabilities/skill-registry.yaml
+    - bbsctl/src/skillctl/agentskills/rules.py
+    - docs/lifecycle.md
+    - .governance/philosophy.md
+  search_for_duplicates: true
+  do_not_modify:
+    - bbsctl/src/skillctl/agentskills/rules.py
+  preferred_patterns:
+    - "Match the directory layout used by sample/hello-skill"
+    - "Use pytest, no new test framework"
+    - "Test name describes the behavior, not the implementation"
+
+ownership:
+  author: "@junior-engineer-handle"
+  reviewer: "@mansura"
+
+estimate:
+  points: 2
+  budget_hours: 4
+
+status: ready

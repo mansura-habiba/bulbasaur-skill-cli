@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../capability-spec.schema.yaml
+id: skillops
+name: "SkillOps Orchestrator"
+purpose: |
+  lifecycle is the thin lifecycle orchestrator that sits beside bbsctl. It enforces the
+  skill process (new → compile → scan → eval → certify → approve → publish) by delegating
+  each stage to a swappable engine adapter. It owns the reproducible stage cache and the
+  signed evidence bundle so CI and reviewers can trust what ran. Without this capability,
+  lifecycle enforcement stays a shell script that cannot cache or verify evidence.
+tier: team
+philosophy_link: ../philosophy.md
+
+contract:
+  inputs:
+    - name: skill_directory
+      shape: "pathlib.Path"
+      description: Skill root containing SKILL.md (and optional skill.yaml / evals/).
+    - name: stage_plan
+      shape: "skillctl.lifecycle.pipeline.StagePlan"
+      description: Ordered stages for a strictness level, with required/optional flags.
+    - name: bbsctl-pipeline_config
+      shape: "[tool.bbsctl] in pyproject.toml"
+      description: Engine mapping, Mellea knobs, and default strictness for the run.
+  outputs:
+    - name: stage_result
+      shape: "skillctl.lifecycle.result.StageResult"
+      description: Normalised per-stage status, findings, artifacts, engine identity, duration.
+    - name: evidence_bundle
+      shape: ".bbsctl/evidence/<skill>-<hash>/"
+      description: Manifest + stage artifacts + approval + bundle.lock (+ placeholder sig).
+  invariants:
+    - "bbsctl CLI behaviour is unchanged; lifecycle is additive."
+    - "Engines are invoked via adapters; scan/certify never import SkillSpector or Mellea."
+    - "Publish refuses unless the evidence bundle verifies against the current skill hash."
+
+tasks_must:
+  pass_contract_tests:
+    - "bbsctl/tests/test_skillops_pipeline.py::test_run_fail_fast_on_stage_failure"
+    - "bbsctl/tests/test_error_contract.py::test_framework_error_fix_coverage"
+  preserve_invariants:
+    - "bbsctl CLI behaviour is unchanged; lifecycle is additive."
+    - "Engines are invoked via adapters; scan/certify never import SkillSpector or Mellea."
+  use_patterns:
+    - "Strategy + Factory for engine selection (same as compile/eval factories)."
+    - "FrameworkError with copy-pasteable Fix lines for every missing-engine failure."
+    - "Reuse marketplace/bundle.BundleLock for evidence locking."
+  avoid_dependencies:
+    - "langchain / langgraph / mellea in the skillctl process — subprocess CLIs only."
+    - "New third-party deps in [project.dependencies] for engines (use dependency-groups)."
+
+forbidden:
+  - "Renaming, removing, or changing behaviour of any bbsctl command."
+  - "Putting git+URL engine deps in [project.dependencies] or optional-dependencies (breaks PyPI)."
+  - "Hard-wiring SkillSpector SARIF or Mellea audit paths into the pipeline core — adapters only."
+
+evidence_requirements:
+  audit_events:
+    - "skillops.stage.completed"
+    - "skillops.evidence.verified"
+    - "skillops.approve.recorded"
+  retention_days: 90
+
+runtime_constraints:
+  performance: "bbsctl pipeline --to compile --fast completes in < 5 s on sample skills (pre-commit budget)."
+  observability: "Every StageResult records engine name + revision and whether the result was cached."
+
+owner:
+  lead: "@mansura"
+  backup: "@senior-engineer-handle"
+
+related_capabilities:
+  - skill-registry
+
+status: active
