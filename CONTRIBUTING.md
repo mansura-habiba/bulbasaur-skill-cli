@@ -41,7 +41,7 @@ Optional engines (inspect / mellea-certify): see [`docs/recipes/how-to-commands.
 1. **Issue first.** Comment on an existing task card / good-first-issue, or open one. Branch names like `task/BBS-123` or `docs/…` help CI and humans cross-link.
 2. **Read the card.** `AGENTS.md` tells assistants to load the issue body, `required_reading`, and the parent capability under `.governance/capabilities/`.
 3. **Stay in scope.** Honor `scope.non_goals` and `ai_context.do_not_modify` on the task card. Expand scope only with a follow-up issue.
-4. **PR against `main`.** Use the PR template. Body must include `Closes #<issue>` (required by governance CI).
+4. **PR against `main`.** Use the PR template. If you change `.governance/` or `tests/contract/`, the body must include `Closes #<issue>` (governance CI enforces that). Product-only PRs can omit it.
 5. **Prove it.** Paste local contract-test output when the card lists `acceptance.contract_tests`. Prefer `make test` for unit coverage of the area you touched.
 
 `main` is protected: PRs need green governance + pylint checks. The sample `bbsctl-pipeline` workflow runs when `bbsctl/` / `sample/` / `Makefile` change; docs-only PRs do not need that job.

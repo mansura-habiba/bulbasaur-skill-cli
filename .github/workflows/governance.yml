@@ -121,14 +121,30 @@ jobs:
           # Future: parse the issue body via gh CLI and check do_not_modify paths.
           echo "Stub for v0.1 — see .github/workflows/governance.yml to extend."
 
-      - name: Reject PRs without a linked task card
+      - name: Require linked task card only for governance-sensitive diffs
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           # Pass untrusted PR body via env — never interpolate into the script text.
-          if ! printf '%s' "$PR_BODY" | grep -qiE '(Closes|Fixes|Resolves) #[0-9]+'; then
-            echo "::error::PR body must reference 'Closes #<issue>' (or Fixes/Resolves) — every change is anchored to a task card."
+          # Contributors who never touch .governance / contract tests should not be
+          # blocked for lacking a task-card issue. Those paths still require Closes #N.
+          changed=$(git diff --name-only "origin/${BASE_REF}...HEAD" || true)
+          governance_sensitive=$(printf '%s\n' "$changed" | grep -E '^(\.governance/|tests/contract/)' || true)
+          has_closes=0
+          if printf '%s' "$PR_BODY" | grep -qiE '(Closes|Fixes|Resolves) #[0-9]+'; then
+            has_closes=1
+          fi
+
+          if [ -n "$governance_sensitive" ] && [ "$has_closes" -eq 0 ]; then
+            echo "::error::This PR changes governance or contract-test files, so the PR body must reference 'Closes #<issue>' (or Fixes/Resolves) with a task card."
+            echo "Governance-sensitive paths:"
+            echo "$governance_sensitive"
             exit 1
+          fi
+
+          if [ -z "$governance_sensitive" ] && [ "$has_closes" -eq 0 ]; then
+            echo "::notice::No 'Closes #<issue>' in the PR body. That is fine for product-only diffs; add one when you change .governance/ or tests/contract/."
           fi
 
       - name: Reject PRs that modify .governance/*.schema.yaml without chore label
