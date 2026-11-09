@@ -11,13 +11,13 @@ Five minutes from zero to a skill running locally, and another minute to load it
 ## Step 1 — Scaffold
 
 ```bash
-uvx bbsctl new hello-skill
+uvx --from skill-pipeline bbsctl new hello-skill
 ```
 
-Or, if you'd like to install `bbsctl` into a project rather than run it on the fly:
+Or, if you'd like to install `skill-pipeline` into a project rather than run it on the fly:
 
 ```bash
-uv add bbsctl
+uv add skill-pipeline
 bbsctl new hello-skill
 ```
 

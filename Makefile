@@ -34,7 +34,7 @@ install: build
 	@echo "==> Creating fresh venv at $(TRY_VENV) …"
 	uv venv $(TRY_VENV) --python 3.13
 	@echo "==> Installing wheel into $(TRY_VENV) …"
-	VIRTUAL_ENV=$(CURDIR)/$(TRY_VENV) uv pip install $(DIST_DIR)/bbsctl-*.whl
+	VIRTUAL_ENV=$(CURDIR)/$(TRY_VENV) uv pip install $(DIST_DIR)/skill_pipeline-*.whl
 	@echo ""
 	$(BBSCTL) --version
 	@echo "==> Installed."
