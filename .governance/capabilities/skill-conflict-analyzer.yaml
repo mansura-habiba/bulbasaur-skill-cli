@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../capability-spec.schema.yaml
+#
+# Intra-SKILL.md conflict tagging — contradictions between authored sections
+# of a single skill file. Non-fatal warnings on `bbsctl validate --full`.
+
+id: skill-conflict-analyzer
+name: "Skill Conflict Analyzer"
+purpose: |
+  Authors sometimes write Instructions that require an action and Guardrails that
+  forbid the same action, or a description that contradicts When-to-use cues.
+  Structural validators and body-section presence checks do not catch those
+  meaning clashes. This capability tags opposing polarity (and optional LLM
+  semantic) conflicts across sections of one SKILL.md so reviewers see them
+  before publish, without failing the default validate gate or expanding the
+  CLI surface with a new verb.
+tier: team
+philosophy_link: ../philosophy.md
+
+contract:
+  inputs:
+    - name: skill_directory
+      shape: "pathlib.Path"
+      description: Skill root containing SKILL.md.
+    - name: conflict_classifier
+      shape: "heuristic | llm"
+      description: Heuristic polarity always runs under --full; llm adds a grounded semantic pass.
+  outputs:
+    - name: conflict_warnings
+      shape: "list[FrameworkError]"
+      description: |
+        Non-fatal warnings with summaries SKILL-CONFLICT-POLARITY or
+        SKILL-CONFLICT-SEMANTIC. Never alone flip ValidateResult.passed to false.
+  invariants:
+    - "Tags apply only to pairs of different sections within one SKILL.md."
+    - "Conflict tags alone never change the validate exit code."
+    - "Polarity findings are deterministic for the same file contents."
+
+tasks_must:
+  pass_contract_tests:
+    - "bbsctl/tests/test_intra_skill_conflict.py::test_instructions_vs_guardrails_polarity"
+    - "bbsctl/tests/test_intra_skill_conflict.py::test_pr_review_helper_no_polarity"
+    - "bbsctl/tests/test_intra_skill_conflict.py::test_fast_skips_validator"
+  preserve_invariants:
+    - "Tags apply only to pairs of different sections within one SKILL.md."
+    - "Conflict tags alone never change the validate exit code."
+    - "Polarity findings are deterministic for the same file contents."
+  use_patterns:
+    - "Validator strategy registered on ValidateRunner with min_mode=FULL."
+    - "FrameworkError warnings (summary/detail/fix); JSON includes detail."
+    - "LLM via skillctl.llm.build_backend; same pattern as classify_cmd."
+  avoid_dependencies:
+    - "New third-party packages in [project.dependencies]."
+    - "langchain / langgraph / mellea in-process for this analyzer."
+
+forbidden:
+  - "Failing bbsctl validate solely because of a conflict tag."
+  - "Detecting conflicts inside a single section or across files/skills."
+  - "Rewriting SKILL.md or inserting tags into the authored file."
+  - "Adding a new top-level CLI verb for conflict analysis."
+  - "Retargeting audit/checks.py onto the conflict section splitter in the same task."
+
+evidence_requirements:
+  audit_events:
+    - "skill.conflict.polarity_tagged"
+    - "skill.conflict.semantic_tagged"
+  retention_days: 90
+
+runtime_constraints:
+  performance: "Polarity pass completes in < 1 s on a typical SKILL.md; LLM pass is opt-in."
+  observability: "Each warning names both sections, quotes, and 1-based source lines."
+
+owner:
+  lead: "@mansura"
+  backup: "@senior-engineer-handle"
+
+related_capabilities:
+  - skill-registry
+
+status: active

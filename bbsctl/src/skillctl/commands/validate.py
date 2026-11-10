@@ -4,11 +4,14 @@ Phase 2 wires the fast validators (< 10 s):
   --fast (default)   enterprise-spec, basic-trigger, output-contract,
                      permissions, side-effects, ownership, policy, risk-matrix
   --full             fast + Phase 3 validators (not wired yet; same as --fast today)
+  --fast (default)   enterprise-spec, basic-trigger, output-contract
+  --full             fast + Phase 3 validators including intra-skill conflict tags
 
 Strictness is read from skill.yaml if present, then from project config
 ([tool.bulbasaur]), then defaults to LOCAL.
 
 Exit codes: 0 = passed, 1 = validation errors, 2 = framework error.
+Conflict tags are warnings and do not alone fail the run.
 """
 
 from __future__ import annotations
@@ -16,6 +19,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from skillctl.llm import list_backends
 from skillctl.messaging import FrameworkError, emit, info
 from skillctl.project_config import load_project_config
 from skillctl.skill_yaml import SkillYamlError, load_skill_yaml
@@ -30,7 +34,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         description=(
             "Run the Bulbasaur validator chain. "
             "--fast (default) runs the team-tier sub-validators in < 10 s. "
-            "--full adds Phase 3 validators (org strictness)."
+            "--full adds Phase 3 validators including intra-SKILL.md conflict tags."
         ),
     )
     p.add_argument(
@@ -55,8 +59,29 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         default=False,
         help=(
             "Run the full validator suite "
-            "(Phase 3 adds registry-context trigger, injection corpus)."
+            "(adds intra-skill conflict tags and other Phase 3 validators)."
         ),
+    )
+    p.add_argument(
+        "--conflict-classifier",
+        default="heuristic",
+        choices=["heuristic", "llm"],
+        help=(
+            "With --full: polarity rules always run; "
+            "`llm` adds a grounded semantic pass (default: heuristic)."
+        ),
+    )
+    p.add_argument(
+        "--backend",
+        default=None,
+        choices=list_backends(),
+        help="LLM backend when --conflict-classifier=llm (ollama / anthropic / openai).",
+    )
+    p.add_argument(
+        "--model",
+        default=None,
+        metavar="NAME",
+        help="LLM model when --conflict-classifier=llm (e.g. `llama3:8b`).",
     )
     p.add_argument(
         "--strictness",
@@ -88,7 +113,14 @@ def run(args: argparse.Namespace) -> int:
     strictness = _resolve_strictness(skill_dir, args.strictness)
     mode = ValidateMode.FULL if args.full else ValidateMode.FAST
 
-    runner = ValidateRunner(skill_dir, strictness, mode=mode)
+    runner = ValidateRunner(
+        skill_dir,
+        strictness,
+        mode=mode,
+        conflict_classifier=getattr(args, "conflict_classifier", "heuristic"),
+        llm_backend=getattr(args, "backend", None),
+        llm_model=getattr(args, "model", None),
+    )
     result = runner.run()
 
     if args.output != "silent":
@@ -137,6 +169,8 @@ def _print_result(result: ValidateResult, *, fmt: str) -> None:
         for warn in r.warnings:
             # Warnings use the same emit() but are not fatal.
             info(f"    WARN: {warn.summary}")
+            if warn.detail:
+                info(f"      Detail: {warn.detail}")
             if warn.fix:
                 info(f"      Fix: {warn.fix}")
         for note in r.notes:
@@ -166,7 +200,11 @@ def _result_to_dict(result: ValidateResult) -> dict:
                     for e in r.errors
                 ],
                 "warnings": [
-                    {"summary": w.summary, "fix": w.fix}
+                    {
+                        "summary": w.summary,
+                        "detail": w.detail,
+                        "fix": w.fix,
+                    }
                     for w in r.warnings
                 ],
                 "notes": r.notes,
