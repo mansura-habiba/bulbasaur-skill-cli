@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../capability-spec.schema.yaml
+
+id: skill-side-effects
+name: "Skill Side Effects Contract"
+purpose: |
+  Authors declare risk.side_effects on skill.yaml, but today that label is only
+  compared to matrix or policy caps. permissions.yaml can still allow writes or
+  network under a read_only claim, and the runtime Guardrails engine is never
+  consulted. This capability makes the blast-radius enum part of the executable
+  contract: infer the minimum level permissions imply, fail bbsctl validate when
+  the declaration is below that level or below an applicable cap, and deny ops
+  that exceed the declared ceiling at evaluation time without new third-party
+  guardrail stacks.
+tier: team
+philosophy_link: ../philosophy.md
+
+contract:
+  inputs:
+    - name: skill_directory
+      shape: "pathlib.Path"
+      description: Skill root with skill.yaml and optional permissions.yaml.
+    - name: declared_side_effects
+      shape: "skillctl.skill_yaml.SideEffects | None"
+      description: Author-declared blast radius from skill.yaml risk.side_effects.
+    - name: permissions
+      shape: "skillctl.permissions.base.Permissions | None"
+      description: Parsed permissions.yaml used to infer implied side effects.
+    - name: runtime_op
+      shape: "command | url | path | mcp_tool"
+      description: Concrete op passed to Guardrails.evaluate_* under the ceiling.
+  outputs:
+    - name: validate_findings
+      shape: "list[FrameworkError]"
+      description: Errors when declaration is missing under a cap, garbage, or below implied/cap level.
+    - name: ceiling_decision
+      shape: "skillctl.permissions.base.Decision"
+      description: Allow or deny for one op, with rule_id suitable for audit JSONL.
+  invariants:
+    - "Declared side_effects is never widened by skill body, prompt, or optional LLM passes."
+    - "Validate collects all side-effect findings; runtime short-circuits on first deny."
+    - "Inference and ceiling use the same SideEffects ordinal and the existing Guardrails Decision value."
+
+tasks_must:
+  pass_contract_tests:
+    - "bbsctl/tests/test_side_effects_contract.py::test_validate_fails_when_permissions_exceed_declaration"
+    - "bbsctl/tests/test_side_effects_contract.py::test_ceiling_denies_write_under_read_only"
+    - "bbsctl/tests/test_side_effects_contract.py::test_validate_reports_unknown_side_effects"
+  preserve_invariants:
+    - "Declared side_effects is never widened by skill body, prompt, or optional LLM passes."
+    - "Validate collects all side-effect findings; runtime short-circuits on first deny."
+    - "Inference and ceiling use the same SideEffects ordinal and the existing Guardrails Decision value."
+  use_patterns:
+    - "Validator registered on ValidateRunner at ValidateMode.FAST."
+    - "FrameworkError with summary/detail/fix; Decision carries rule_id."
+    - "Reuse SideEffects enum and Guardrails.evaluate_*; do not fork permissions."
+  avoid_dependencies:
+    - "New third-party packages in [project.dependencies]."
+    - "litellm / langflow / langchain in-process for this capability."
+
+forbidden:
+  - "Adding a new top-level bbsctl verb solely for side-effect analysis."
+  - "Letting an LLM clear a rule deny or raise the declared side_effects ceiling."
+  - "Rewriting SKILL.md Guardrails prose as the machine contract."
+  - "Implementing the full Phase-4 hook bus or org-permissions loader in the first task."
+  - "Vendoring LiteLLM or Langflow guardrail catalogs."
+
+evidence_requirements:
+  audit_events:
+    - "skill.side_effects.validated"
+    - "skill.side_effects.ceiling_denied"
+  retention_days: 90
+
+runtime_constraints:
+  performance: "Side-effect validate pass completes in < 1 s on a typical skill directory."
+  observability: "Findings name declared level, implied level, applicable cap, and rule_id."
+
+owner:
+  lead: "@mansura"
+  backup: "@senior-engineer-handle"
+
+related_capabilities:
+  - skill-conflict-analyzer
+  - skillops
+
+status: active
