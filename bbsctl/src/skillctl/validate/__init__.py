@@ -5,8 +5,9 @@
   BasicTriggerValidator     — name/description form a useful trigger signal
   OutputContractValidator   — output_contract schema is well-formed (if present)
 
-`bbsctl validate --full` (Phase 3) adds the registry-context trigger validator,
-prompt-injection corpus, and semantic fuzzer. Those are not wired here yet.
+`bbsctl validate --full` adds IntraSkillConflictValidator (polarity tags;
+optional LLM via --conflict-classifier llm) plus other Phase 3 validators
+as they land.
 
 Usage:
     from skillctl.validate import ValidateRunner, ValidateMode
@@ -15,9 +16,11 @@ Usage:
 """
 
 from .base import ValidateMode, ValidateResult, Validator, ValidatorResult
+from .intra_skill_conflict import IntraSkillConflictValidator
 from .runner import ValidateRunner
 
 __all__ = [
+    "IntraSkillConflictValidator",
     "ValidateMode",
     "ValidateResult",
     "ValidateRunner",
