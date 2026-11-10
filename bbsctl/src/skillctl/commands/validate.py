@@ -113,9 +113,9 @@ def run(args: argparse.Namespace) -> int:
         skill_dir,
         strictness,
         mode=mode,
-        conflict_classifier=args.conflict_classifier,
-        llm_backend=args.backend,
-        llm_model=args.model,
+        conflict_classifier=getattr(args, "conflict_classifier", "heuristic"),
+        llm_backend=getattr(args, "backend", None),
+        llm_model=getattr(args, "model", None),
     )
     result = runner.run()
 

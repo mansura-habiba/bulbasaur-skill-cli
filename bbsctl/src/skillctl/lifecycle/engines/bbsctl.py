@@ -96,6 +96,9 @@ class BbsctlEngine:
                 skill_dir=str(ctx.skill_dir),
                 fast=True,
                 full=False,
+                conflict_classifier="heuristic",
+                backend=None,
+                model=None,
                 strictness=ctx.strictness.value,
                 output="silent",
             )
