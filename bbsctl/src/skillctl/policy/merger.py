@@ -18,12 +18,17 @@ example). The merge is **deny-wins**:
   - Cost limits: minimum (tighter wins).
   - Compliance frameworks: union.
   - Custom validators: union.
+  - require_risk_profile / require_complete_risk_profile: any True → True.
+  - risk_controls: per level, OR of bool flags; tightest max_side_effects;
+    union of forbidden_data_classifications.
 
 The merged policy carries a synthetic metadata block listing the source
 policy names so audit reports can attribute each requirement.
 """
 
 from __future__ import annotations
+
+from skillctl.skill_yaml import SideEffects
 
 from .base import (
     ApprovalRequirements,
@@ -39,7 +44,10 @@ from .base import (
     Policy,
     PolicyMetadata,
     RequiredArtifacts,
+    RiskControl,
 )
+
+_LEVEL_ORDER = ("low", "medium", "high", "critical")
 
 _FAIL_MODE_RANK = {
     "fail-open": 0,
@@ -84,6 +92,11 @@ def merge_policies(*policies: Policy) -> Policy:
         compliance_frameworks=_merge_compliance(policies),
         custom_validators=_union_tuples(
             *(p.custom_validators for p in policies)
+        ),
+        risk_controls=_merge_risk_controls(policies),
+        require_risk_profile=any(p.require_risk_profile for p in policies),
+        require_complete_risk_profile=any(
+            p.require_complete_risk_profile for p in policies
         ),
     )
 
@@ -219,6 +232,56 @@ def _merge_compliance(policies):
         ComplianceMapping(id=fid, controls=tuple(sorted(controls)))
         for fid, controls in sorted(seen.items())
     )
+
+
+def _merge_risk_controls(policies) -> tuple[RiskControl, ...]:
+    by_level: dict[str, RiskControl] = {}
+    for policy in policies:
+        for control in policy.risk_controls:
+            prior = by_level.get(control.level)
+            by_level[control.level] = (
+                control if prior is None else _tighter_risk_control(prior, control)
+            )
+    ordered = [by_level[level] for level in _LEVEL_ORDER if level in by_level]
+    extras = [
+        by_level[level]
+        for level in sorted(by_level)
+        if level not in _LEVEL_ORDER
+    ]
+    return tuple(ordered + extras)
+
+
+def _tighter_risk_control(a: RiskControl, b: RiskControl) -> RiskControl:
+    return RiskControl(
+        level=a.level,
+        require_sandbox=a.require_sandbox or b.require_sandbox,
+        require_signature=a.require_signature or b.require_signature,
+        require_human_approval=a.require_human_approval or b.require_human_approval,
+        require_security_reviewer=(
+            a.require_security_reviewer or b.require_security_reviewer
+        ),
+        require_injection_corpus=(
+            a.require_injection_corpus or b.require_injection_corpus
+        ),
+        max_side_effects=_tighter_max_side_effects(
+            a.max_side_effects, b.max_side_effects
+        ),
+        forbidden_data_classifications=_union_tuples(
+            a.forbidden_data_classifications,
+            b.forbidden_data_classifications,
+        ),
+    )
+
+
+def _tighter_max_side_effects(a: str, b: str) -> str:
+    """Lower SideEffects rank wins. Empty means no cap."""
+    left = SideEffects.from_string(a) if a else None
+    right = SideEffects.from_string(b) if b else None
+    if left is None:
+        return b or ""
+    if right is None:
+        return a or ""
+    return left.value if left.rank <= right.rank else right.value
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────

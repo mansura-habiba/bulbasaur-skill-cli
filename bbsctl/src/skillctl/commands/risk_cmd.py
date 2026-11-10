@@ -19,7 +19,9 @@ import sys
 from pathlib import Path
 
 from skillctl.messaging import FrameworkError, emit, info
-from skillctl.permissions.side_effects import OpKind, SideEffectCeiling
+from skillctl.permissions.hook import PermissionsHook
+from skillctl.permissions.side_effects import OpKind
+from skillctl.project_config import load_project_config
 from skillctl.risk_matrix import (
     get_matrix_cell,
     render_matrix,
@@ -258,8 +260,16 @@ def _run_check(args: argparse.Namespace) -> int:
     strictness = _resolve_strictness(skill_dir, args.strictness)
     matrix = RiskMatrixValidator().run(skill_dir, strictness)
     side = SideEffectsValidator().run(skill_dir, strictness)
-    ceiling = SideEffectCeiling.for_skill(skill_dir, strictness)
-    decisions = [(kind, value, ceiling.evaluate(kind, value)) for kind, value in parsed]
+    cfg = load_project_config(skill_dir)
+    sink = Path(cfg.audit.team_sink)
+    if not sink.is_absolute():
+        sink = skill_dir / sink
+    hook = PermissionsHook.for_skill(
+        skill_dir,
+        strictness,
+        audit_sink=sink,
+    )
+    decisions = [(kind, value, hook.check(kind, value)) for kind, value in parsed]
     denied = any(decision.denied for _, _, decision in decisions)
     passed = matrix.passed and side.passed and not denied
 

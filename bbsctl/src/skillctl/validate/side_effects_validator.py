@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 from typing import assert_never
 
+from skillctl.audit.stream import append_audit_event, resolve_audit_sink
 from skillctl.messaging import FrameworkError
 from skillctl.permissions.loader import PermissionsLoadError, load_permissions
 from skillctl.permissions.side_effects import (
@@ -42,6 +43,7 @@ class SideEffectsValidator(Validator):
         cap = _cap(strictness, risk)
         perms = None
         load_failed = False
+        line = "declared=(unset) implied=unverified cap=(none)"
         try:
             perms = load_permissions(skill_dir)
         except PermissionsLoadError:
@@ -105,9 +107,22 @@ class SideEffectsValidator(Validator):
             if not errors:
                 notes.append(f"side-effects: {line}")
 
-        return _result(
+        result = _result(
             self.name, started, errors=errors, warnings=warnings, notes=notes
         )
+        if resolve_audit_sink() is not None:
+            append_audit_event(
+                None,
+                "skill.side_effects.validated",
+                payload={
+                    "skill": skill_dir.name,
+                    "passed": result.passed,
+                    "error_count": len(errors),
+                    "warning_count": len(warnings),
+                    "detail": line,
+                },
+            )
+        return result
 
 
 def _cap(strictness: Strictness, risk: Risk) -> SideEffects | None:

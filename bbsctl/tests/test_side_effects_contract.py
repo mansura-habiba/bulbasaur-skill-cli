@@ -252,6 +252,25 @@ filesystem:
     assert decision.rule_id == "namespaces.deny.kube-system"
 
 
+def test_permissions_hook_writes_ceiling_denied_audit(tmp_path: Path) -> None:
+    from skillctl.permissions.hook import PermissionsHook
+
+    skill = _write_skill(
+        tmp_path,
+        skill_yaml=_read_only_yaml(),
+        permissions=_WRITE_GRANT,
+    )
+    sink = tmp_path / "audit.jsonl"
+    hook = PermissionsHook.for_skill(skill, Strictness.LOCAL, audit_sink=sink)
+    decision = hook.check(OpKind.WRITE, "out/x")
+    assert decision.denied
+    lines = sink.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 1
+    event = json.loads(lines[0])
+    assert event["event"] == "skill.side_effects.ceiling_denied"
+    assert event["rule_id"] == "side_effects.ceiling.write"
+
+
 def test_risk_check_op_reports_decision_and_exits_1(tmp_path: Path, capsys) -> None:
     skill = _write_skill(
         tmp_path,
