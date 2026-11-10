@@ -4,6 +4,8 @@ Phase 2 fast validators (team strictness):
   enterprise-spec      skill.yaml present + valid
   basic-trigger        name/description trigger quality
   output-contract      output_contract well-formed if present
+  permissions          permissions.yaml at the strictness rung
+  side-effects         risk.side_effects covers what permissions.yaml grants
 
 Phase 3 full validators (org strictness) are registered via register_validator()
 at import time when the org modules land (not wired yet).
@@ -25,6 +27,7 @@ from .ownership_validator import OwnershipValidator
 from .permissions_validator import PermissionsValidator
 from .policy_validator import PolicyValidator
 from .risk_matrix_validator import RiskMatrixValidator
+from .side_effects_validator import SideEffectsValidator
 
 
 @dataclass(frozen=True)
@@ -39,6 +42,7 @@ _REGISTRY: list[_ValidatorRegistration] = [
     _ValidatorRegistration(factory=BasicTriggerValidator, min_mode=ValidateMode.FAST),
     _ValidatorRegistration(factory=OutputContractValidator, min_mode=ValidateMode.FAST),
     _ValidatorRegistration(factory=PermissionsValidator, min_mode=ValidateMode.FAST),
+    _ValidatorRegistration(factory=SideEffectsValidator, min_mode=ValidateMode.FAST),
     _ValidatorRegistration(factory=OwnershipValidator, min_mode=ValidateMode.FAST),
     _ValidatorRegistration(factory=PolicyValidator, min_mode=ValidateMode.FAST),
     _ValidatorRegistration(factory=RiskMatrixValidator, min_mode=ValidateMode.FAST),

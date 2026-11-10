@@ -1,7 +1,8 @@
 """`bbsctl validate` — run the validator chain against a skill.
 
 Phase 2 wires the fast validators (< 10 s):
-  --fast (default)   enterprise-spec, basic-trigger, output-contract
+  --fast (default)   enterprise-spec, basic-trigger, output-contract,
+                     permissions, side-effects, ownership, policy, risk-matrix
   --full             fast + Phase 3 validators (not wired yet; same as --fast today)
 
 Strictness is read from skill.yaml if present, then from project config
@@ -44,7 +45,8 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         default=True,
         help=(
             "Run fast sub-validators only (default). "
-            "enterprise-spec, basic-trigger, output-contract."
+            "enterprise-spec, basic-trigger, output-contract, permissions, "
+            "side-effects, ownership, policy, risk-matrix."
         ),
     )
     p.add_argument(

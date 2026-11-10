@@ -31,6 +31,15 @@ def _compile(pattern: str) -> re.Pattern[str]:
     return compiled
 
 
+def fs_list_is_open(paths: list[str] | None) -> bool:
+    """True when a filesystem allowlist can admit at least one path.
+
+    None means the key was omitted and every path is allowed. A non-empty
+    list admits matches. [] is an explicit deny-all, so it is closed.
+    """
+    return paths is None or bool(paths)
+
+
 class Guardrails:
     """Evaluate runtime ops against a Permissions object.
 
@@ -195,8 +204,14 @@ class Guardrails:
     def _evaluate_fs(
         self, path: str, *, allowed: list[str] | None, mode: str
     ) -> Decision:
-        # None = key omitted (no restriction). [] = explicit empty allowlist
-        # (deny-all). Non-empty = glob allowlist.
+        if not fs_list_is_open(allowed):
+            return Decision(
+                op_type=RuleGroup.FILESYSTEM,
+                op_value=path,
+                decision=DecisionType.DENY,
+                rule_id=f"filesystem.{mode}.empty-allowlist",
+                reason=f"{mode}_paths is an empty allow list (deny all)",
+            )
         if allowed is None:
             return Decision(
                 op_type=RuleGroup.FILESYSTEM,
@@ -214,14 +229,6 @@ class Guardrails:
                     rule_id=f"filesystem.{mode}.allow",
                     reason=f"path matches {mode}_paths glob `{pat}`",
                 )
-        if not allowed:
-            return Decision(
-                op_type=RuleGroup.FILESYSTEM,
-                op_value=path,
-                decision=DecisionType.DENY,
-                rule_id=f"filesystem.{mode}.empty-allowlist",
-                reason=f"{mode}_paths is an empty allow list (deny all)",
-            )
         return Decision(
             op_type=RuleGroup.FILESYSTEM,
             op_value=path,
@@ -310,4 +317,4 @@ class Guardrails:
         return match.group(1) if match else None
 
 
-__all__ = ["Guardrails"]
+__all__ = ["Guardrails", "fs_list_is_open"]
