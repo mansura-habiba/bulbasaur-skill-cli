@@ -1,156 +1,241 @@
-# Candidate API interoperability for Open Agentic Catalog #75 and #76
+# Bulbasaur API: integration guide and design
 
-**Status:** Independent exploratory design, not accepted by the OAC maintainer.
-**Audience:** Mihai, maintainers, reviewers and coding agents.
-**Primary rule:** OAC governs metadata; Bulbasaur assesses skills. Do not
-merge their approval, execution or persistence authority.
+**Status:** Experimental implementation in the `feat/top-level-assessment-api` branch.  
+**Audience:** API consumers, catalog maintainers, application developers, and coding agents.
 
-## Objective and overlap
+Bulbasaur offers reusable, versioned skill-validation and static-assessment
+operations. Applications, registries, and catalogs can invoke the same
+operations using a Python library, JSON over HTTP, or Model Context Protocol
+(MCP). No catalog-specific plugin, CLI invocation, or schema registration is
+required to call the API.
 
-OAC #75 proposes a compiled Go registry reducing repeated kind dispatch and
-an initial descriptor-only kind. OAC #76 proposes tenant-configured resource
-definitions with Eval, Control and Workflow examples and bounded JSON Schema
-validation. These upstream epics **already** set the architecture direction.
+## How the API works
 
-Bulbasaur currently owns Agent Skills parsing, a compile pipeline, static
-checks, optional evaluators, artifact evidence and local marketplace tooling.
-The top-level `api/` exposes reusable static assessment through a Python
-service and two transports: FastMCP tools and custom JSON HTTP routes. It
-does **not** install or publish resources through OAC.
+```text
+Catalog / application / agent
+          |
+          +-- HTTP POST /v1/skills/validate
+          +-- HTTP POST /v1/skills/assess
+          +-- MCP validate_agent_skill
+          +-- MCP assess_agent_skill
+          |
+          v
+   FastMCP transport (api/)
+          |
+          v
+ SkillAssessmentService (api/)
+          |
+          v
+ Existing skillctl parsing / compilation / static rules
+          |
+          v
+ Structured result with findings and SKILL.md SHA-256
+```
 
-## Ownership boundary
+The API lives under repository-root `api/`, separate from the
+`bbsctl/src/skillctl/` package. `skillctl` provides the existing Agent
+Skills parser and compiler. The API's service object supplies a transport-
+independent entry point; the HTTP and MCP handlers call that same service.
+Existing CLI behavior is unchanged.
 
-| Responsibility | OAC | Bulbasaur |
+The current API accepts the text of **one SKILL.md**, not an arbitrary
+Skill package or remote URL. The SHA-256 identifies exactly those uploaded
+UTF-8 bytes; it is not a package hash, signature, or publisher attestation.
+
+## Available operations
+
+| Operation | Interface | Behavior |
 | --- | --- | --- |
-| Resource/VersionRevision/Listing identity | Owns | Does not replace |
-| Tenant permission, review, release, publication | Owns | Never grants |
-| Native Skill schema validation | Owns | Independently parses SKILL.md |
-| Candidate Eval/Control definitions | May govern under #76 | Produces examples |
-| Runtime assessment | Does not execute | Owns local assessment |
-| Assessment report | May reference only via agreed contract | Produces result + digest |
-| Execution/installation | Neither in this integration | Not invoked via API |
+| Validate | `POST /v1/skills/validate` | Agent Skills frontmatter and required-field checks |
+| Assess | `POST /v1/skills/assess` | Existing compile pipeline and static steps |
+| Validate | MCP tool `validate_agent_skill` | Same validation function as HTTP |
+| Assess | MCP tool `assess_agent_skill` | Same static assessment function as HTTP |
+| Health | `GET /healthz` | Minimal service health response |
 
-A digest of supplied SKILL.md alone does not authenticate the publisher or
-identify the digest of an entire Skill package. A self-described evaluation
-result does not establish correctness, safety or Catalog approval.
+The MCP endpoint is served at `/mcp` using FastMCP Streamable HTTP. FastMCP
+is the server framework; no FastAPI, Swagger UI, or OpenAPI publication is
+necessary to call these operations.
 
-## Implemented Bulbasaur components
+### JSON request
 
-- `api/src/bulbasaur_api/service.py`: transport-neutral
-  `SkillAssessmentService.validate()` and `assess()`.
-- `api/src/bulbasaur_api/app.py`: FastMCP with MCP tools and JSON routes.
-- `api/contracts/assessment.v1.schema.json`: static assessment output.
-- `api/contracts/eval-resource.v1.schema.json`: candidate custom Eval.
-- `api/contracts/control-resource.v1.schema.json`: candidate custom Control.
-- `api/contracts/examples/`: reproducible small resource definitions.
-- `api/examples/open_agentic_catalog/`: actual API-only, read-only client.
-- `api/tests/`: schema, service, transport and OAC request contract checks.
+```json
+{
+  "skill_name": "log-analyzer",
+  "skill_md": "---\nname: log-analyzer\ndescription: Analyze log entries and identify errors.\n---\n\n## Instructions\nRead the supplied logs without modifying files.",
+  "profile": "local"
+}
+```
 
-No CLI, custom resource administration, OAC schema install, or Catalog data
-mutation is required for the implemented example.
+`profile` is optional for `/v1/skills/assess` (default: `local`).
+The validation endpoint ignores profile because it performs frontmatter
+validation only. MCP tools accept the corresponding named arguments.
 
-## Existing OAC endpoints used
+### Assessment response
 
-`GET /api/v1/capabilities` and
-`GET /api/v1/resources?kind=skill&limit=5` are present in OAC's
-`api/openapi/control-v1.yaml`. The second is an authorized **local Resource
-inventory**, not a published ARD search. It requires current Catalog access.
-The example uses only GET and does not follow URLs from metadata.
+```json
+{
+  "schema_version": "bulbasaur.assessment/v1",
+  "status": "passed",
+  "artifact": {
+    "media_type": "text/markdown",
+    "sha256": "<64 hexadecimal characters>"
+  },
+  "assessment": {
+    "profile": "local",
+    "mode": "static",
+    "checks_run": 4
+  },
+  "findings": [],
+  "behavioral_evaluation": "not_run",
+  "catalog_approval": "not_applicable"
+}
+```
 
-A later end-to-end Skill assessment consumer would need an explicitly
-selected exact representation read, checked against authoritative content
-identity. We have **not implemented that end-to-end flow**, and no unsupported
-or guessed OAC endpoint is used.
+This example is illustrative: the digest and number of checks must be
+taken from an actual run. The normative result schema is
+`api/contracts/assessment.v1.schema.json`. Validation uses the smaller,
+backward-compatible `status`, `artifact_sha256`, `validator`, `findings`
+response shape.
 
-## Epic #75: specific code contribution
+`passed` means the invoked checks passed. It does not indicate
+behavioral evaluation, security certification, approval, or permission to
+execute. Assessment runs static compile steps in a temporary workspace and
+removes the workspace afterward.
 
-The proposed compiled-kind registry belongs **in OAC's Go repository**, not
-in Bulbasaur's Python. The upstream issue identifies:
+## Local startup and requests
 
-- `internal/catalog/types.go`: kind enum
-- `internal/adapter/registry.go`: native validation routing
-- `internal/publication/manager.go`: publication mapping
-- `internal/federation/manager.go`: media-type-to-kind mapping
-- DB CHECK constraints, OpenAPI enum, SDKs, UI: additional explicit admission
+From the repository root:
 
-Desired first PR: a *four-existing-kind* registry and completeness tests,
-without adding new public kinds or changing response semantics. Acceptance:
-native validators, existing searches, publication, federation, permissions,
-API contracts and client behavior remain unchanged. An incomplete definition
-fails a focused completeness test. No automatic SQL/SDK/schema mutation.
+```sh
+cd api
+uv sync --extra test
+uv run pytest -q
+export BULBASAUR_HTTP_TOKEN='local-development-secret'
+uv run bulbasaur-api
+```
 
-Bulbasaur contributes a real client compatibility fixture (read-only
-capabilities and Skill inventory) but does not itself implement Go refactoring.
+The development service binds to `127.0.0.1:8088`. For REST, supply
+`Authorization: Bearer local-development-secret`. For example:
 
-## Epic #76: candidate contract contribution
+```sh
+curl -sS http://127.0.0.1:8088/v1/skills/assess \
+  -H 'Authorization: Bearer local-development-secret' \
+  -H 'Content-Type: application/json' \
+  --data-binary @request.json
+```
 
-The proposed Eval descriptor contains `schemaVersion`, `name`,
-`target.resourceIdentifier`, `target.version`, and bounded `cases`
-with `id`, `input` and `expectedBehavior`. The Control descriptor
-contains `schemaVersion`, `name`, `subject` and bounded declarative
-`rules`. Neither descriptor executes anything. Both reject unknown top-level
-properties. They are independent JSON objects suitable for *discussion* under
-#76's admin-configured format model.
+A Python consumer can call the transport-neutral service without starting
+the server:
 
-OAC must still agree type-definition authority, immutable schema binding,
-media types, finite parser budgets, discovery representation, lifecycle
-eligibility and access controls. JSON Schema passing locally does not imply
-OAC can already admit the document.
+```python
+from bulbasaur_api.service import SkillAssessmentService
 
-## Security and operational controls
+result = SkillAssessmentService().assess(
+    skill_name="log-analyzer",
+    skill_md=skill_markdown,
+    profile="local",
+)
+```
 
-- HTTP custom routes have independent bearer authentication because FastMCP
-  custom routes do not inherit MCP authentication.
-- MCP has no remote authentication in this MVP, so bind to loopback only.
-- HTTP bodies and SKILL.md bytes are bounded. MCP tool argument budgets need
-  an authenticated limiting layer before remote use.
-- No arbitrary remote input URL or caller-selected server filesystem path.
-- Existing compiler writes `dist/` only under an automatically discarded
-  temporary workspace.
-- No runtime evaluation, scripts, secret exfiltration tests or external model
-  calls are executed by this static assessment endpoint.
-- Do not treat `passed` as Catalog review, approval or publication.
-- The local OAC API example requires HTTPS except for loopback and does not
-  follow untrusted metadata links.
-- Current OAC tenant isolation, authorization on replay and immutable history
-  must remain unchanged in any future PR.
+### What any catalog needs to integrate
 
-## Verification and gaps
+1. Read an **exact selected skill revision** using the catalog's existing
+   authenticated read mechanism. Obtain the actual SKILL.md bytes rather than
+   relying on a description or search snippet.
+2. Call Bulbasaur `/v1/skills/validate` or `/v1/skills/assess`, or the
+   corresponding MCP tool, with the skill name and document text.
+3. Validate the result against the versioned contract. Verify the returned
+   SKILL.md digest against independently retained bytes or evidence.
+4. Display or retain the findings as external assessment information.
+   Decide how to bind or publish such evidence **using that catalog's own
+   governance and API contract**. The Bulbasaur API does not automatically
+   mutate any catalog.
 
-| Claim | Test location | Status |
+A catalog may be implemented in Go, Python, Java, TypeScript, or another
+language: interoperability requires only JSON HTTP or MCP support. The API
+does not assume any particular catalog's resource, release, or approval model.
+
+## Extensible descriptors
+
+The `api/contracts/` directory also includes **candidate** JSON Schema
+definitions for Eval and Control descriptions, with real examples. These
+are portable metadata proposals, not runtime engines and not registered
+resource kinds in any external catalog.
+
+- `eval-resource.v1.schema.json`: evaluation definition, target and bounded
+  cases; does not run the cases.
+- `control-resource.v1.schema.json`: subject and declared control rules;
+  does not enforce the rules.
+- `examples/`: small sample documents for consumer-side schema testing.
+
+A catalog that supports custom JSON resource types could *choose* to admit
+these descriptions through its normal type-definition lifecycle, but the
+Bulbasaur API does not require it.
+
+## Security and operational boundaries
+
+- HTTP routes created with FastMCP `custom_route` do **not** inherit
+  FastMCP MCP authentication. The REST endpoints therefore require a
+  separate `BULBASAUR_HTTP_TOKEN`.
+- The MCP endpoint is **unauthenticated in this development implementation**.
+  Keep the service loopback-only. Add MCP authentication and transport-level
+  request limits before remote deployment.
+- HTTP bodies and SKILL.md inputs are bounded. No arbitrary file path, URL
+  fetch, installation, external scanner, script execution, or model-based
+  evaluation is exposed by these endpoints.
+- A document digest alone proves neither source authenticity nor safety.
+  Treat submitted skill content as untrusted data.
+- Parser error details are not echoed to clients. Generated compilation
+  artifacts are written only in an automatically deleted temporary workspace.
+
+## Open Agentic Catalog example (one integration)
+
+The runnable, read-only OAC example is in
+`api/examples/open_agentic_catalog/`. It calls the **existing** Control API
+routes `GET /api/v1/capabilities` and
+`GET /api/v1/resources?kind=skill&limit=5`. The latter is an authorized
+local Resource inventory, not public ARD Search.
+
+That example demonstrates API access and request boundaries. It **does not**
+yet fetch an exact Skill representation and submit it to Bulbasaur, so it
+must not be called a live end-to-end integration.
+
+For potential upstream contributions:
+
+- [OAC issue #75](https://github.com/open-agentic-catalog/open-agentic-catalog/issues/75)
+  proposes an internal compiled Go resource-kind registry. The Python API
+  does not implement that change.
+- [OAC issue #76](https://github.com/open-agentic-catalog/open-agentic-catalog/issues/76)
+  proposes custom Eval, Control, and Workflow resource types. Bulbasaur's
+  candidate descriptor schemas may help as example inputs, subject to the
+  OAC maintainer's contract decisions.
+
+These are **optional compatibility opportunities**; OAC-specific behavior
+is not embedded into the Bulbasaur service layer.
+
+## Verification and current limits
+
+| Capability | Evidence | Scope |
 | --- | --- | --- |
-| Static assessment and result schema | `api/tests/test_api.py` | Automated |
-| Invalid and oversized input refusal | `api/tests/test_api.py` | Automated |
-| MCP tool discovery + HTTP bearer guard | `api/tests/test_api.py` | Automated |
-| Eval/Control candidate schema validation | `api/tests/test_api.py` | Automated |
+| Validation and static assessment | `api/tests/test_api.py` | Automated |
+| REST bearer check and request limits | `api/tests/test_api.py` | Local HTTP test |
+| MCP tool registration and call | `api/tests/test_api.py` | In-process MCP test |
+| Assessment response JSON Schema | `api/tests/test_api.py` | Automated |
+| Eval/Control example validity | `api/tests/test_api.py` | Automated candidate schemas |
 | OAC read-only request shape | `api/tests/test_oac_example.py` | Mocked offline |
-| Real authenticated OAC integration | not run | Pending owned local Catalog |
-| OAC #75 native Go refactor | upstream repository | Not implemented here |
-| OAC #76 custom-kind lifecycle | upstream repository | Pending design acceptance |
-| Model-based security/eval effectiveness | not part of static service | Not claimed |
+| Real catalog-to-assessment flow | Not implemented | Future integration |
+| External network security qualification | Not performed | Development-only |
 
-The API tests and CI results should be linked with their commit SHA when
-reporting outcomes. Offline mocked requests do not prove live interoperability.
+To extend this integration, add independent, scoped tests for the exact
+catalog-specific read contract and actual resulting bytes. Do not invent
+API routes or infer publication privileges. Keep fixture expectations
+separate from verified live consumer results.
 
-## Proposed contribution strategy
+## Notes for maintainers and coding agents
 
-1. Request review of this document and the candidate contracts *before*
-   implementing upstream behavior.
-2. Offer a small OAC #75 Go completeness-test/refactor slice under the
-   existing epic, with unchanged four-kind behavior.
-3. Offer the Eval/Control schema examples and focused validation cases for
-   #76 after the type definition contract is accepted.
-4. Only after both agree, test an exact OAC Skill representation read ->
-   separately authorized Bulbasaur assess -> independently verified digest.
-5. Keep external assessment/evidence import and runtime integration out of
-   both initial epic PRs.
-
-## Instructions for coding agents
-
-Read OAC `DESIGN.md`, `CONTRIBUTING.md`, issues #75 and #76 and accepted
-ADRs. Upstream decisions override candidate choices in this document.
-Never create OAC APIs by inference; verify each route in the current pinned
-OpenAPI contract. Keep governed lifecycle steps separate. Do not edit applied
-migrations, assume permissions, infer verified trust from publisher prose, or
-publish based on Bulbasaur's own success status. Use synthetic fixtures and
-report actual tests separately from intended future behavior.
+Start with `api/src/bulbasaur_api/service.py`,
+`api/src/bulbasaur_api/app.py`, `api/contracts/`, and `api/tests/`.
+Keep transport-specific code in `api/` and keep `skillctl` reusable.
+Version public response schemas deliberately and preserve compatibility.
+Do not turn a static assessment success into approval, execution
+authorization, or a cross-catalog publication decision.

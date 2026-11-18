@@ -56,3 +56,27 @@ network exposure. HTTP bodies are bounded; MCP tool arguments have no
 equivalent transport-level body bound in this prototype and require an
 authenticated, size-limited gateway before remote deployment. No arbitrary
 host filesystem paths, remote URLs, skill execution or Catalog mutation.
+
+## Optional behavioral evaluation
+
+The default assessment remains static-only and reports
+`"behavioral_evaluation": "not_run"`. To run the existing
+`skillctl.eval.EvalRunner`, send an explicit `evaluation` object with
+`enabled: true`, a bounded suite of cases, and an admitted runtime/judge.
+Both the REST `/v1/skills/assess` endpoint and the MCP
+`assess_agent_skill` tool accept the same input.
+
+**Default admission:** only the deterministic `mock` runtime and
+`heuristic` judge. This validates the evaluation machinery but does not
+measure a real LLM agent. A trusted server-side JSON file selected with
+`BULBASAUR_EVAL_CONFIG` may explicitly enable the existing Ollama runtime;
+it requires separate local isolation and egress controls. The request cannot
+replace server policy.
+
+- [Request and operator configuration examples](examples/behavioral-evaluation/)
+- [Implementation, security, status semantics and limitations](docs/behavioral-evaluation.md)
+- [Assessment v2 result schema](contracts/assessment.v2.schema.json)
+
+A requested successful behavioral run returns `bulbasaur.assessment/v2`.
+The response contains aggregate and per-case scores and a corpus digest;
+it does not return potentially sensitive prompts or model replies.
