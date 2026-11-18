@@ -1,0 +1,29 @@
+name: Bulbasaur HTTP API
+
+on:
+  pull_request:
+    paths:
+      - "api/**"
+      - "bbsctl/**"
+      - ".github/workflows/bulbasaur-api.yml"
+  push:
+    branches: [main]
+    paths:
+      - "api/**"
+      - "bbsctl/**"
+      - ".github/workflows/bulbasaur-api.yml"
+  workflow_dispatch:
+
+jobs:
+  test-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Install and test API
+        working-directory: api
+        run: |
+          uv sync --extra test
+          uv run pytest -q

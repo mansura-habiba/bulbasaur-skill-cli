@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/bulbasaur/assessment.v1.schema.json",
+  "title": "Bulbasaur static skill assessment result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "artifact",
+    "assessment",
+    "findings",
+    "behavioral_evaluation",
+    "catalog_approval"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "bulbasaur.assessment/v1"
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed",
+        "not_run",
+        "error"
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "required": [
+        "media_type",
+        "sha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "media_type": {
+          "const": "text/markdown"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "mode",
+        "checks_run"
+      ],
+      "properties": {
+        "profile": {
+          "type": "string"
+        },
+        "mode": {
+          "const": "static"
+        },
+        "checks_run": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message",
+          "severity"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ]
+          }
+        }
+      }
+    },
+    "behavioral_evaluation": {
+      "const": "not_run"
+    },
+    "catalog_approval": {
+      "const": "not_applicable"
+    }
+  }
+}

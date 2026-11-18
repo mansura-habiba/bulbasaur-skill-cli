@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "name": "log-analyzer-boundary",
+  "subject": "urn:air:example.org:skill:log-analyzer",
+  "rules": [
+    {
+      "id": "no-write",
+      "statement": "Analysis is read-only; do not modify log files."
+    },
+    {
+      "id": "no-secrets",
+      "statement": "Do not disclose credentials discovered in logs."
+    }
+  ]
+}
