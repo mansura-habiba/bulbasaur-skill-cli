@@ -1,5 +1,6 @@
-"""Optional FastMCP API at repository root; independent of skillctl."""
+"""Bulbasaur's optional FastMCP transport and reusable assessment service."""
 
-from .app import create_app, mcp, validate_skill
+from .app import assess_skill, create_app, mcp, validate_skill
+from .service import SkillAssessmentService
 
-__all__ = ["create_app", "mcp", "validate_skill"]
+__all__ = ["SkillAssessmentService", "assess_skill", "create_app", "mcp", "validate_skill"]
