@@ -60,7 +60,8 @@ class SkillAssessmentService:
         except ValueError:
             return _error_result(digest, [_finding("invalid_profile", "Unknown strictness profile")])
         try:
-            selected_eval = normalize_request(evaluation, policy=load_operator_policy())
+            selected_eval = (normalize_request(evaluation, policy=load_operator_policy())
+                             if evaluation is not None else None)
         except (EvaluationConfigurationError, OSError, ValueError):
             return _error_result(digest, [_finding(
                 "evaluation_configuration", "Evaluation request or operator policy is invalid"
