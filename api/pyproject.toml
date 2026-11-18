@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bulbasaur-api"
+version = "0.1.0"
+description = "Optional HTTP API for Bulbasaur skill assessment"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "fastapi>=0.115,<1.0",
+  "uvicorn>=0.30,<1.0",
+  "skill-pipeline==0.1.1",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10", "httpx>=0.27,<1"]
+
+[project.scripts]
+bulbasaur-api = "bulbasaur_api.main:main"
+
+[tool.uv.sources]
+skill-pipeline = { path = "../bbsctl", editable = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bulbasaur_api"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
