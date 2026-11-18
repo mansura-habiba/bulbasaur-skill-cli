@@ -1,10 +1,10 @@
-"""Entry point for the optional Bulbasaur HTTP server."""
+"""Run FastMCP's HTTP and MCP interfaces on loopback only."""
 
 
 def main() -> None:
-    import uvicorn
+    from .app import mcp
 
-    uvicorn.run("bulbasaur_api.app:app", host="127.0.0.1", port=8088)
+    mcp.run(transport="http", host="127.0.0.1", port=8088)
 
 
 if __name__ == "__main__":
