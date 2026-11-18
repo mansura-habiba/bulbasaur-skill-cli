@@ -24,9 +24,10 @@ def validate_skill(skill_name: str, skill_md: str) -> dict:
     return _service.validate(skill_name, skill_md)
 
 
-def assess_skill(skill_name: str, skill_md: str, profile: str = "local") -> dict:
+def assess_skill(skill_name: str, skill_md: str, profile: str = "local",
+                 evaluation: dict | None = None) -> dict:
     """Invoke existing Bulbasaur compile/static checks, no model execution."""
-    return _service.assess(skill_name, skill_md, profile=profile)
+    return _service.assess(skill_name, skill_md, profile=profile, evaluation=evaluation)
 
 
 def create_app() -> FastMCP:
@@ -38,9 +39,10 @@ def create_app() -> FastMCP:
         return validate_skill(skill_name, skill_md)
 
     @server.tool
-    def assess_agent_skill(skill_name: str, skill_md: str, profile: str = "local") -> dict:
+    def assess_agent_skill(skill_name: str, skill_md: str, profile: str = "local",
+                           evaluation: dict | None = None) -> dict:
         """Run structural/static compile checks without model-based evaluation."""
-        return assess_skill(skill_name, skill_md, profile)
+        return assess_skill(skill_name, skill_md, profile, evaluation)
 
     @server.custom_route("/healthz", methods=["GET"])
     async def healthz(request: Request) -> JSONResponse:
@@ -87,7 +89,8 @@ def create_app() -> FastMCP:
         if error is not None:
             return error
         return JSONResponse(assess_skill(
-            data.get("skill_name"), data.get("skill_md"), data.get("profile", "local")
+            data.get("skill_name"), data.get("skill_md"), data.get("profile", "local"),
+            data.get("evaluation")
         ))
 
     return server
