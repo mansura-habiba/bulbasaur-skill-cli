@@ -73,9 +73,9 @@ def normalize_request(value: Any, *, policy: OperatorPolicy) -> dict[str, Any] |
         raise EvaluationConfigurationError("Evaluation requires enabled=true")
     runtime = value.get("runtime", "mock")
     judge = value.get("judge", "heuristic")
-    if runtime not in policy.allowed_runtimes or runtime not in _ALLOWED_RUNTIME:
+    if not isinstance(runtime, str) or runtime not in policy.allowed_runtimes or runtime not in _ALLOWED_RUNTIME:
         raise EvaluationConfigurationError("Runtime not permitted by operator configuration")
-    if judge not in _ALLOWED_JUDGE:
+    if not isinstance(judge, str) or judge not in _ALLOWED_JUDGE:
         raise EvaluationConfigurationError("Only the heuristic judge is available via this API")
     if runtime != "mock" and not policy.enable_real_runtimes:
         raise EvaluationConfigurationError("Real runtimes are disabled")
