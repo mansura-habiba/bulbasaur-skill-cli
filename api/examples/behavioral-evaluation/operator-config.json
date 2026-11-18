@@ -1,0 +1,7 @@
+{
+  "allowed_runtimes": [
+    "mock"
+  ],
+  "max_cases": 12,
+  "enable_real_runtimes": false
+}
