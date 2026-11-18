@@ -134,7 +134,7 @@ def run_behavioral_evaluation(
         "mode": "deterministic_mock" if request["runtime"] == "mock" else "agent_runtime",
         "cases_run": total,
         "cases_passed": report.passed_cases,
-        "score": report.score if total else 0.0,
+        "score": report.passed_cases / total if total else 0.0,
         "corpus_sha256": hashlib.sha256(encoded.encode("utf-8")).hexdigest(),
         "case_results": [
             {"id": c.case_id, "passed": c.passed, "score": c.score,
