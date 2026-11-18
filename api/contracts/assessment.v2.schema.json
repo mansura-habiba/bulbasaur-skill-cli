@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Bulbasaur skill assessment with optional behavioral execution v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "artifact",
+    "assessment",
+    "findings",
+    "behavioral_evaluation",
+    "catalog_approval"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "bulbasaur.assessment/v2"
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed",
+        "error"
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "required": [
+        "media_type",
+        "sha256"
+      ],
+      "properties": {
+        "media_type": {
+          "const": "text/markdown"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "assessment": {
+      "type": "object",
+      "required": [
+        "profile",
+        "mode",
+        "checks_run"
+      ],
+      "properties": {
+        "profile": {
+          "type": "string"
+        },
+        "mode": {
+          "const": "static"
+        },
+        "checks_run": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "severity"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ]
+          }
+        }
+      }
+    },
+    "catalog_approval": {
+      "const": "not_applicable"
+    },
+    "behavioral_evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "runtime",
+        "judge",
+        "mode",
+        "cases_run",
+        "cases_passed",
+        "score",
+        "corpus_sha256",
+        "case_results"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "error"
+          ]
+        },
+        "runtime": {
+          "type": "string"
+        },
+        "judge": {
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "deterministic_mock",
+            "agent_runtime"
+          ]
+        },
+        "cases_run": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cases_passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "corpus_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "case_results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "passed",
+              "score",
+              "error"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "passed": {
+                "type": "boolean"
+              },
+              "score": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "error": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

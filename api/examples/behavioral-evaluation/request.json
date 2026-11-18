@@ -1,0 +1,21 @@
+{
+  "skill_name": "reply-helper",
+  "skill_md": "---\nname: reply-helper\ndescription: Respond with a fixed greeting when asked.\n---\n\n## Instructions\nReply with: \"Hello there\"\n",
+  "profile": "local",
+  "evaluation": {
+    "enabled": true,
+    "runtime": "mock",
+    "judge": "heuristic",
+    "threshold": 1,
+    "cases": [
+      {
+        "id": "greeting-1",
+        "prompt": "Greet the user",
+        "expected_output": "Hello there",
+        "assertions": [
+          "Hello there"
+        ]
+      }
+    ]
+  }
+}
