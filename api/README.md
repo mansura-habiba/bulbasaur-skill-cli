@@ -1,55 +1,38 @@
-# Bulbasaur API (experimental)
+# Bulbasaur FastMCP API (experimental)
 
-An optional HTTP API **at the repository root**, separate from
-`bbsctl/src/skillctl`. The existing `skillctl` Python library is consumed as a
-dependency; the CLI and its publishing lifecycle remain unchanged.
+Lives in repository-root `api/`, outside `bbsctl/src/skillctl`.
+One FastMCP process provides both an MCP tool and a JSON HTTP endpoint,
+reusing the existing `skillctl` parser. No FastAPI, Swagger UI, or required
+OpenAPI endpoint. CLI behavior is unchanged.
 
-## First vertical slice
+| Interface | Endpoint | Notes |
+| --- | --- | --- |
+| MCP | `/mcp`, tool `validate_agent_skill` | Tool discovery and call |
+| HTTP | `POST /v1/skills/validate` | JSON request and result |
+| Health | `GET /healthz` | Unauthenticated |
 
-- `GET /healthz`
-- `POST /v1/skills/validate`: accepts JSON with `skill_name` and `skill_md`
-- Returns `passed` or `failed`, a SHA-256 of the exact uploaded UTF-8 bytes,
-  and bounded structural findings.
-- **Only** checks the existing Agent Skills frontmatter rules. Does not compile,
-  scan, evaluate, approve, install, publish, or execute a skill.
-- Does not offer a caller-selected filesystem path or remote fetch URL.
-- No Catalog write operations or direct integration with epic #75/#76 yet.
-
-## Local development
-
-From the repository root (requires Python 3.11–3.13 and uv):
+## Local run
 
 ```bash
 cd api
 uv sync --extra test
-uv run pytest
+uv run pytest -q
+export BULBASAUR_HTTP_TOKEN=local-development-only-secret
 uv run bulbasaur-api
 ```
 
-The server binds to loopback on port 8088. FastAPI serves OpenAPI at
-`http://127.0.0.1:8088/openapi.json` and Swagger UI at `/docs`.
+The service listens on 127.0.0.1:8088. Call REST with JSON
+`{"skill_name":"log-analyzer","skill_md":"---\\nname: log-analyzer\\ndescription: Analyze logs.\\n---\\nBody"}`
+and `Authorization: Bearer local-development-only-secret`.
 
-Sample:
+## Security boundaries
 
-```bash
-curl -s http://127.0.0.1:8088/v1/skills/validate \
-  -H 'content-type: application/json' \
-  -d '{"skill_name":"log-analyzer","skill_md":"---\\nname: log-analyzer\\ndescription: Analyze logs.\\n---\\n\\n## Instructions\\nRead logs."}'
-```
+**Local development only; do not expose externally.** FastMCP custom routes
+bypass its MCP authentication, so REST has a separate mandatory bearer token.
+MCP is currently unauthenticated and must be secured before remote deployment.
+REST inputs are bounded and uploaded text is not executed. Validation only
+checks structural frontmatter and does not mean safety, approval, certification,
+execution, installation, or publication. Digest is for SKILL.md bytes only.
 
-This service is for isolated local development. Before network exposure, add
-request/body limits at the reverse proxy, authentication, rate limiting,
-structured error contracts, and explicit resource budgets. The temporary
-directory is deleted after parsing, and validation failures do not reflect
-uploaded source content.
-
-## Catalog roadmap boundary
-
-Epic #75 (compiled resource kind registry) belongs in Open Agentic Catalog's
-Go codebase; this package is **not** a substitute. Epic #76 (custom Eval /
-Control / Workflow descriptors) requires an agreed upstream schema contract.
-Do not add those as Catalog-native types until that contract is accepted.
-
-Next: extract transport-neutral validation results and add versioned assessment
-and descriptor schemas without conflating a Bulbasaur assessment with Catalog
-review/approval.
+Open Agentic Catalog #75 remains a Go registry implementation. #76 requires
+agreed Eval and Control resource contracts; these are not yet implemented.
