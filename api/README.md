@@ -1,38 +1,58 @@
-# Bulbasaur FastMCP API (experimental)
+# Bulbasaur API (FastMCP and HTTP)
 
-Lives in repository-root `api/`, outside `bbsctl/src/skillctl`.
-One FastMCP process provides both an MCP tool and a JSON HTTP endpoint,
-reusing the existing `skillctl` parser. No FastAPI, Swagger UI, or required
-OpenAPI endpoint. CLI behavior is unchanged.
+The independent `api/` project lives at repository root, **outside**
+`bbsctl/src/skillctl/`. The existing skillctl compiler/validator is reused
+by `bulbasaur_api.service.SkillAssessmentService`, a transport-neutral Python
+API. The CLI and original skillctl code are unchanged.
 
-| Interface | Endpoint | Notes |
+## Endpoints
+
+| Interface | Address | Behavior |
 | --- | --- | --- |
-| MCP | `/mcp`, tool `validate_agent_skill` | Tool discovery and call |
-| HTTP | `POST /v1/skills/validate` | JSON request and result |
-| Health | `GET /healthz` | Unauthenticated |
+| REST | POST `/v1/skills/validate` | Existing frontmatter validation |
+| REST | POST `/v1/skills/assess` | Existing compiler plus static checks |
+| MCP | `/mcp`, `validate_agent_skill` | Frontmatter tool |
+| MCP | `/mcp`, `assess_agent_skill` | Static compile-assessment tool |
+| Health | GET `/healthz` | Unauthenticated health |
 
-## Local run
+Both REST and MCP call the same Python service. Assessment results follow
+`contracts/assessment.v1.schema.json`, with SHA-256 of the exact SKILL.md
+bytes, findings, profile and explicit `behavioral_evaluation: not_run`.
+The assessment runs only the local compile/static steps; it does not invoke
+LLMs, third-party scanners or arbitrary scripts. Compile artifacts are written
+only to a deleted temporary workspace.
 
-```bash
+## Run
+
+```sh
 cd api
 uv sync --extra test
-uv run pytest -q
+uv run pytest
 export BULBASAUR_HTTP_TOKEN=local-development-only-secret
 uv run bulbasaur-api
 ```
 
-The service listens on 127.0.0.1:8088. Call REST with JSON
-`{"skill_name":"log-analyzer","skill_md":"---\\nname: log-analyzer\\ndescription: Analyze logs.\\n---\\nBody"}`
-and `Authorization: Bearer local-development-only-secret`.
+Loopback: `http://127.0.0.1:8088`. Example payload for both JSON endpoints:
+`{"skill_name":"log-analyzer","skill_md":"---\\nname: log-analyzer\\ndescription: Analyze logs.\\n---\\nBody"}`.
+REST requires `Authorization: Bearer local-development-only-secret`.
 
-## Security boundaries
+## OAC #75 / #76 interoperability
 
-**Local development only; do not expose externally.** FastMCP custom routes
-bypass its MCP authentication, so REST has a separate mandatory bearer token.
-MCP is currently unauthenticated and must be secured before remote deployment.
-REST inputs are bounded and uploaded text is not executed. Validation only
-checks structural frontmatter and does not mean safety, approval, certification,
-execution, installation, or publication. Digest is for SKILL.md bytes only.
+Candidate Eval and Control schemas and realistic examples are in
+`contracts/`. They are **not** registered Catalog resource kinds or
+accepted custom-resource formats. They can be used to discuss the schema
+lifecycle in OAC #76 and provide independent test inputs.
 
-Open Agentic Catalog #75 remains a Go registry implementation. #76 requires
-agreed Eval and Control resource contracts; these are not yet implemented.
+OAC #75 is a Go compiled-kind-registry refactor: this project supplies no
+replacement for it. The Catalog remains sole authority for resource identity,
+version revisions, tenant rights, reviews, releases and discovery.
+
+## Security
+
+Development only; bind to loopback. FastMCP custom HTTP routes do **not**
+inherit MCP authentication. REST has its own mandatory bearer token, whereas
+the MCP endpoint remains unauthenticated and **must be secured** before
+network exposure. HTTP bodies are bounded; MCP tool arguments have no
+equivalent transport-level body bound in this prototype and require an
+authenticated, size-limited gateway before remote deployment. No arbitrary
+host filesystem paths, remote URLs, skill execution or Catalog mutation.
