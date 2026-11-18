@@ -6,7 +6,7 @@ to `SKILL.md` and `skill.yaml`. Enforced at four points in the lifecycle:
   Compile-time  — PermissionsLintStep validates the file and flags footguns.
   Validate      — PermissionsValidator checks the rules satisfy the strictness rung.
   Publish gate  — refuses to host a skill at `org+` without a valid permissions.yaml.
-  Runtime       — Guardrails engine evaluates every op against the merged rules.
+  Runtime       — PermissionsHook / SideEffectCeiling over Guardrails.
 
 See: docs/permissions.md for the full design.
 """
@@ -19,6 +19,7 @@ from .base import (
     RuleGroup,
 )
 from .engine import Guardrails
+from .hook import PermissionsHook
 from .loader import PermissionsLoadError, load_permissions, merge_permissions
 
 __all__ = [
@@ -26,6 +27,7 @@ __all__ = [
     "DecisionType",
     "Guardrails",
     "Permissions",
+    "PermissionsHook",
     "PermissionsLoadError",
     "Rule",
     "RuleGroup",

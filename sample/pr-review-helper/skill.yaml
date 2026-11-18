@@ -9,3 +9,4 @@ ownership:
 
 risk:
   level: low
+  side_effects: read_only

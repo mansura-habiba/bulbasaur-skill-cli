@@ -4,7 +4,8 @@ Three subcommands:
 
   bbsctl risk show                     # print the full 16-cell matrix
   bbsctl risk cell <strict> <risk>     # print one cell's controls
-  bbsctl risk check [skill_dir]        # run RiskMatrixValidator against a skill
+  bbsctl risk check [skill_dir] [--op KIND:VALUE]
+                                       # matrix + side-effects, optional dry-run
 
 The matrix is shipped as data in `skillctl.risk_matrix`; this is the
 operator-facing surface for that data.
@@ -18,14 +19,18 @@ import sys
 from pathlib import Path
 
 from skillctl.messaging import FrameworkError, emit, info
+from skillctl.permissions.hook import PermissionsHook
+from skillctl.permissions.side_effects import OpKind
+from skillctl.project_config import load_project_config
 from skillctl.risk_matrix import (
-    DEFAULT_RISK_MATRIX,
     get_matrix_cell,
     render_matrix,
 )
 from skillctl.skill_yaml import RiskLevel
 from skillctl.strictness import Strictness
+from skillctl.validate.base import ValidatorResult
 from skillctl.validate.risk_matrix_validator import RiskMatrixValidator
+from skillctl.validate.side_effects_validator import SideEffectsValidator
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
@@ -81,7 +86,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     # ── check ────────────────────────────────────────────────────────────
     check_p = sub.add_parser(
         "check",
-        help="Run RiskMatrixValidator against a skill.",
+        help="Run the risk-matrix and side-effects validators against a skill.",
     )
     check_p.add_argument(
         "skill_dir",
@@ -94,6 +99,17 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         default=None,
         choices=[s.value for s in Strictness],
         help="Override strictness (default: read from skill.yaml).",
+    )
+    check_p.add_argument(
+        "--op",
+        action="append",
+        default=None,
+        metavar="KIND:VALUE",
+        help=(
+            "Dry-run one operation through SideEffectCeiling. Repeatable. "
+            "KIND is command, url, read, write, env, or mcp_tool. "
+            "The value splits off at the first colon."
+        ),
     )
     check_p.add_argument(
         "--output",
@@ -203,6 +219,16 @@ def _run_cell(args: argparse.Namespace) -> int:
 # ── check ──────────────────────────────────────────────────────────────────
 
 
+def parse_op(raw: str) -> tuple[OpKind, str] | None:
+    if ":" not in raw:
+        return None
+    token, value = raw.split(":", 1)
+    kind = OpKind.parse(token.strip())
+    if kind is None:
+        return None
+    return kind, value
+
+
 def _run_check(args: argparse.Namespace) -> int:
     skill_dir = Path(args.skill_dir).resolve()
     if not skill_dir.is_dir():
@@ -214,49 +240,113 @@ def _run_check(args: argparse.Namespace) -> int:
         )
         return 2
 
+    parsed: list[tuple[OpKind, str]] = []
+    for raw in list(getattr(args, "op", None) or []):
+        item = parse_op(str(raw))
+        if item is None:
+            emit(
+                FrameworkError(
+                    summary=f"malformed --op {raw!r}",
+                    detail="Expected KIND:VALUE.",
+                    fix=(
+                        "Use command, url, read, write, env, or mcp_tool, "
+                        "then a colon, then the value. Example: --op write:out/x.md"
+                    ),
+                )
+            )
+            return 2
+        parsed.append(item)
+
     strictness = _resolve_strictness(skill_dir, args.strictness)
-    result = RiskMatrixValidator().run(skill_dir, strictness)
+    matrix = RiskMatrixValidator().run(skill_dir, strictness)
+    side = SideEffectsValidator().run(skill_dir, strictness)
+    cfg = load_project_config(skill_dir)
+    sink = Path(cfg.audit.team_sink)
+    if not sink.is_absolute():
+        sink = skill_dir / sink
+    hook = PermissionsHook.for_skill(
+        skill_dir,
+        strictness,
+        audit_sink=sink,
+    )
+    decisions = [(kind, value, hook.check(kind, value)) for kind, value in parsed]
+    denied = any(decision.denied for _, _, decision in decisions)
+    passed = matrix.passed and side.passed and not denied
 
     if args.output == "json":
         sys.stdout.write(
             json.dumps(
                 {
-                    "passed": result.passed,
+                    "passed": passed,
                     "strictness": strictness.value,
                     "skill_dir": str(skill_dir),
-                    "errors": [
-                        {"summary": e.summary, "detail": e.detail, "fix": e.fix}
-                        for e in result.errors
+                    "errors": [_finding(e) for e in matrix.errors],
+                    "warnings": [_finding(w) for w in matrix.warnings],
+                    "notes": list(matrix.notes),
+                    "side_effects": _validator_payload(side),
+                    "decisions": [
+                        {
+                            "op_type": decision.op_type.value,
+                            "op_value": decision.op_value,
+                            "decision": decision.decision.value,
+                            "rule_id": decision.rule_id,
+                            "reason": decision.reason,
+                            "kind": kind.token,
+                        }
+                        for kind, _, decision in decisions
                     ],
-                    "warnings": [
-                        {"summary": w.summary, "detail": w.detail}
-                        for w in result.warnings
-                    ],
-                    "notes": list(result.notes),
                 },
                 indent=2,
             )
             + "\n"
         )
-        return 0 if result.passed else 1
+        return 0 if passed else 1
 
-    status = "PASSED" if result.passed else "FAILED"
-    info(f"risk-matrix @ {strictness.value}: {status}")
     info(f"  skill: {skill_dir}")
     info("")
+    _print_validator("risk-matrix", strictness, matrix)
+    info("")
+    _print_validator("side-effects", strictness, side)
+    if decisions:
+        info("")
+        info("ops:")
+        for kind, value, decision in decisions:
+            verdict = "DENY" if decision.denied else "ALLOW"
+            info(
+                f"  {verdict:<6} {kind.token:<10} {value:<28} "
+                f"{decision.rule_id}  {decision.reason}"
+            )
+    return 0 if passed else 1
+
+
+def _finding(error: FrameworkError) -> dict[str, str | None]:
+    return {"summary": error.summary, "detail": error.detail, "fix": error.fix}
+
+
+def _validator_payload(result: ValidatorResult) -> dict[str, object]:
+    return {
+        "passed": result.passed,
+        "errors": [_finding(e) for e in result.errors],
+        "warnings": [_finding(w) for w in result.warnings],
+        "notes": list(result.notes),
+    }
+
+
+def _print_validator(title: str, strictness: Strictness, result: ValidatorResult) -> None:
+    status = "PASSED" if result.passed else "FAILED"
+    info(f"{title} @ {strictness.value}: {status}")
     for note in result.notes:
         info(f"  · {note}")
-    for w in result.warnings:
-        info(f"  WARN: {w.summary}")
-        if w.detail:
-            info(f"        detail: {w.detail}")
-    for e in result.errors:
-        info(f"  ERROR: {e.summary}")
-        if e.detail:
-            info(f"         detail: {e.detail}")
-        if e.fix:
-            info(f"         Fix: {e.fix}")
-    return 0 if result.passed else 1
+    for warning in result.warnings:
+        info(f"  WARN: {warning.summary}")
+        if warning.detail:
+            info(f"        detail: {warning.detail}")
+    for error in result.errors:
+        info(f"  ERROR: {error.summary}")
+        if error.detail:
+            info(f"         detail: {error.detail}")
+        if error.fix:
+            info(f"         Fix: {error.fix}")
 
 
 def _resolve_strictness(skill_dir: Path, override: str | None) -> Strictness:

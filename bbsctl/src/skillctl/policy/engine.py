@@ -269,14 +269,7 @@ class PolicyEngine:
             if control.max_side_effects:
                 max_se = SideEffects.from_string(control.max_side_effects)
                 if max_se is not None and risk.side_effects is not None:
-                    order = [
-                        SideEffects.NONE,
-                        SideEffects.READ_ONLY,
-                        SideEffects.REVERSIBLE,
-                        SideEffects.EXTERNAL,
-                        SideEffects.DESTRUCTIVE,
-                    ]
-                    ok = order.index(risk.side_effects) <= order.index(max_se)
+                    ok = risk.side_effects.rank <= max_se.rank
                     result.checks.append(
                         RequirementCheck(
                             section=(

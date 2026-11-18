@@ -164,29 +164,21 @@ class RiskMatrixValidator(Validator):
             )
 
         if cell.max_side_effects and risk.side_effects is not None:
-            order = [
-                SideEffects.NONE,
-                SideEffects.READ_ONLY,
-                SideEffects.REVERSIBLE,
-                SideEffects.EXTERNAL,
-                SideEffects.DESTRUCTIVE,
-            ]
             cap = SideEffects.from_string(cell.max_side_effects)
-            if cap is not None and risk.side_effects in order:
-                if order.index(risk.side_effects) > order.index(cap):
-                    errors.append(
-                        FrameworkError(
-                            summary=(
-                                f"risk-matrix: cell ({strictness.value}, {risk.level.value}) "
-                                f"caps `side_effects` at `{cap.value}`; declared `{risk.side_effects.value}`"
-                            ),
-                            fix=(
-                                f"Reduce the skill's `risk.side_effects` to `{cap.value}` "
-                                "(or lower) — or downgrade `risk.level` if the side-effect "
-                                "profile is genuinely beyond the cap."
-                            ),
-                        )
+            if cap is not None and risk.side_effects.rank > cap.rank:
+                errors.append(
+                    FrameworkError(
+                        summary=(
+                            f"risk-matrix: cell ({strictness.value}, {risk.level.value}) "
+                            f"caps `side_effects` at `{cap.value}`; declared `{risk.side_effects.value}`"
+                        ),
+                        fix=(
+                            f"Reduce the skill's `risk.side_effects` to `{cap.value}` "
+                            "(or lower) — or downgrade `risk.level` if the side-effect "
+                            "profile is genuinely beyond the cap."
+                        ),
                     )
+                )
 
         if not errors:
             notes.append(

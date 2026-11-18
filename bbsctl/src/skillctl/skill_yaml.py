@@ -125,6 +125,10 @@ class SideEffects(str, Enum):
     EXTERNAL = "external"
     DESTRUCTIVE = "destructive"
 
+    @property
+    def rank(self) -> int:
+        return list(type(self)).index(self)
+
     @classmethod
     def from_string(cls, value: str | None) -> SideEffects | None:
         if not value:
@@ -147,6 +151,8 @@ class Risk:
     data_classification: DataClassification | None = None
     side_effects: SideEffects | None = None
     requires_human_approval: bool = False
+    # Set only when the author wrote a token from_string rejects.
+    side_effects_unrecognized: str = ""
 
     @property
     def declared(self) -> bool:
@@ -376,17 +382,28 @@ def _parse_overlay(raw: dict[str, Any], *, path: Path) -> SkillOverlay:
 
 
 def _parse_risk(raw: Any) -> Risk:
-    """Parse the `risk:` block. Unknown enum values fall through as None."""
     if not isinstance(raw, dict):
         return Risk()
+    side_effects, unrecognized = _parse_side_effects(raw.get("side_effects"))
     return Risk(
         level=RiskLevel.from_string(raw.get("level")),
         data_classification=DataClassification.from_string(
             raw.get("data_classification")
         ),
-        side_effects=SideEffects.from_string(raw.get("side_effects")),
+        side_effects=side_effects,
         requires_human_approval=bool(raw.get("requires_human_approval", False)),
+        side_effects_unrecognized=unrecognized,
     )
+
+
+def _parse_side_effects(raw: Any) -> tuple[SideEffects | None, str]:
+    if raw is None or raw == "":
+        return None, ""
+    text = raw if isinstance(raw, str) else str(raw)
+    parsed = SideEffects.from_string(text)
+    if parsed is None:
+        return None, text
+    return parsed, ""
 
 
 def _parse_provenance(raw: Any) -> Provenance:

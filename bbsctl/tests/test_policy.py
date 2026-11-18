@@ -302,6 +302,41 @@ def test_merge_max_approver_count_per_role():
     assert merged.approval.required_approvers[0].count == 2
 
 
+def test_merge_keeps_risk_controls_and_profile_flags():
+    from skillctl.policy.base import RiskControl
+
+    hipaa = _policy_with(
+        require_risk_profile=True,
+        require_complete_risk_profile=True,
+        risk_controls=(
+            RiskControl(
+                level="high",
+                require_human_approval=True,
+                max_side_effects="external",
+            ),
+        ),
+    )
+    other = _policy_with(
+        risk_controls=(
+            RiskControl(
+                level="high",
+                require_injection_corpus=True,
+                max_side_effects="reversible",
+            ),
+            RiskControl(level="medium", require_injection_corpus=True),
+        ),
+    )
+    merged = merge_policies(hipaa, other)
+    assert merged.require_risk_profile is True
+    assert merged.require_complete_risk_profile is True
+    by_level = {c.level: c for c in merged.risk_controls}
+    assert by_level["medium"].require_injection_corpus is True
+    high = by_level["high"]
+    assert high.require_human_approval is True
+    assert high.require_injection_corpus is True
+    assert high.max_side_effects == "reversible"
+
+
 # ── PolicyEngine ──────────────────────────────────────────────────────────
 
 
