@@ -1,5 +1,5 @@
-"""Optional, transport-only HTTP interface for the Bulbasaur skill library."""
+"""Optional FastMCP API at repository root; independent of skillctl."""
 
-from .app import create_app
+from .app import create_app, mcp, validate_skill
 
-__all__ = ["create_app"]
+__all__ = ["create_app", "mcp", "validate_skill"]
