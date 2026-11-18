@@ -16,6 +16,11 @@ from skillctl.compile.pipeline import CompileContext
 from skillctl.compile.reporter import NullReporter
 from skillctl.strictness import Strictness
 
+from .behavior import (
+    EvaluationConfigurationError, load_operator_policy,
+    normalize_request, run_behavioral_evaluation,
+)
+
 SCHEMA_VERSION = "bulbasaur.assessment/v1"
 MAX_SKILL_BYTES = 128 * 1024
 _NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -40,7 +45,8 @@ def _error_result(digest: str, findings: list[dict[str, str]]) -> dict[str, Any]
 class SkillAssessmentService:
     """Library API for bounded, untrusted SKILL.md structural assessment."""
 
-    def assess(self, skill_name: str, skill_md: str, *, profile: str = "local") -> dict[str, Any]:
+    def assess(self, skill_name: str, skill_md: str, *, profile: str = "local",
+               evaluation: dict[str, Any] | None = None) -> dict[str, Any]:
         if not isinstance(skill_name, str) or not isinstance(skill_md, str):
             return _error_result("", [_finding("invalid_input", "Expected string inputs")])
         raw = skill_md.encode("utf-8")
@@ -53,7 +59,13 @@ class SkillAssessmentService:
             strictness = Strictness(profile)
         except ValueError:
             return _error_result(digest, [_finding("invalid_profile", "Unknown strictness profile")])
-        # No caller-controlled directory, side effects limited to deleted temp workspace.
+        try:
+            selected_eval = normalize_request(evaluation, policy=load_operator_policy())
+        except (EvaluationConfigurationError, OSError, ValueError):
+            return _error_result(digest, [_finding(
+                "evaluation_configuration", "Evaluation request or operator policy is invalid"
+            )])
+        # No caller-controlled directory; compiler artifacts remain temporary.
         with tempfile.TemporaryDirectory(prefix="bulbasaur-assessment-") as root:
             directory = Path(root) / skill_name
             directory.mkdir()
@@ -66,7 +78,7 @@ class SkillAssessmentService:
                     findings.append(_finding(step.step_name, "Validation failed in " + step.step_name))
                 for warning in step.warnings:
                     findings.append(_finding(step.step_name, "Validation warning in " + step.step_name, "warning"))
-            return {
+            response = {
                 "schema_version": SCHEMA_VERSION,
                 "status": "passed" if result.success else "failed",
                 "artifact": {"media_type": "text/markdown", "sha256": digest},
@@ -79,6 +91,24 @@ class SkillAssessmentService:
                 "behavioral_evaluation": "not_run",
                 "catalog_approval": "not_applicable",
             }
+            if selected_eval is not None and result.success:
+                response["schema_version"] = "bulbasaur.assessment/v2"
+                try:
+                    evidence = run_behavioral_evaluation(directory, skill_name, selected_eval)
+                    response["behavioral_evaluation"] = evidence
+                    if evidence["status"] != "passed":
+                        response["status"] = "failed"
+                except Exception:
+                    # No runtime exceptions or evaluated text in API responses.
+                    response["status"] = "error"
+                    response["behavioral_evaluation"] = {
+                        "status": "error", "runtime": selected_eval["runtime"],
+                        "judge": selected_eval["judge"],
+                        "mode": "deterministic_mock" if selected_eval["runtime"] == "mock" else "agent_runtime",
+                        "cases_run": 0, "cases_passed": 0, "score": 0.0,
+                        "corpus_sha256": "0" * 64, "case_results": [],
+                    }
+            return response
 
     def validate(self, skill_name: str, skill_md: str) -> dict[str, Any]:
         """Return original v1 validation shape, using existing parser directly.
